@@ -93,14 +93,15 @@ public class VideoPlayerModel {
 	public VideoPlayerModel(boolean audioEnabled, BiConsumer<Integer, Integer> videoSizeChangedHandler,
 			Consumer<Image> frameReadyHandler, Consumer<String> statusChangedHandler,
 			BiConsumer<Boolean, Boolean> playbackStateChangedHandler,
-			Consumer<Boolean> audioOutputStateChangedHandler) {
+			Consumer<Boolean> audioOutputStateChangedHandler,
+			List<FrameProcessor> frameProcessorList) {
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
 		this.frameReadyHandler = frameReadyHandler;
 		this.statusChangedHandler = statusChangedHandler;
 		this.playbackStateChangedHandler = playbackStateChangedHandler;
 		this.audioOutputStateChangedHandler = audioOutputStateChangedHandler;
-		this.frameProcessors = new ArrayList<>();
+		this.frameProcessors = frameProcessorList;
 		//frameProcessors.add(new FrameBleeder());
 		//frameProcessors.add(new FrameScratcher());
 		//frameProcessors.add(new FrameDuster());
