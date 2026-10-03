@@ -90,6 +90,8 @@ public class CommandLineController {
                 setDisplayId(1);
             } else if ("-2".equals(arg) || "--monitor-2".equals(arg)) {
                 setDisplayId(2);
+            } else if ("-n".equals(arg) || "--number-frames".equals(arg)) {
+            	frameList.add(new FrameNumberer());
             } else if ("-s".equals(arg) || "--scratch-frames".equals(arg)) {
             	frameList.add(new FrameScratcher());
             } else if ("-f".equals(arg) || "--flicker-frames".equals(arg)) {
@@ -102,7 +104,7 @@ public class CommandLineController {
             	frameList.add(new FrameVignetter());
             } else if ("-d".equals(arg) || "--dust-frames".equals(arg)) {
             	frameList.add(new FrameDuster());
-            } else if ("-m".equals(arg) || "--mottle-frames ".equals(arg)) {
+            } else if ("-m".equals(arg) || "--mottle-frames".equals(arg)) {
             	frameList.add(new FrameMottler());
             } else if ("-j".equals(arg) || "--jitter-frames".equals(arg)) {
             	frameList.add(new FrameJitterer());
@@ -110,7 +112,34 @@ public class CommandLineController {
             	frameList.add(new FrameBleeder());
             } else if ("-p".equals(arg) || "--pepper-frames".equals(arg)) {
             	frameList.add(new FramePepperer());
-            } else if (arg.startsWith("-")) {
+            } 
+            else if (arg.startsWith("-") && !arg.startsWith("--")) {
+            	
+            	for (int i = 1; i < arg.length(); i++) {
+            		char character = arg.charAt(i);
+            		switch (character) {
+            		case 'h': helpRequested = true; break;
+            		case 'a': audioRequested = true; break;
+            		case '1': setDisplayId(1); break;
+            		case '2': setDisplayId(2); break;
+            		case 'x': maximiseRequested = true; break;
+            		case 'n': frameList.add(new FrameNumberer()); break;
+            		case 's': frameList.add(new FrameScratcher()); break;
+            		case 'f': frameList.add(new FrameFlickerer()); break;
+            		case 'w': frameList.add(new FrameBlackAndWhiter()); break;
+            		case 'y': frameList.add(new FrameYellower()); break;
+            		case 'v': frameList.add(new FrameVignetter()); break;
+            		case 'd': frameList.add(new FrameDuster()); break;
+            		case 'm': frameList.add(new FrameMottler()); break;
+            		case 'j': frameList.add(new FrameJitterer()); break;
+            		case 'b': frameList.add(new FrameBleeder()); break;
+            		case 'p': frameList.add(new FramePepperer()); break;
+            		default: errorMessage = "Unknown option: -" + character; return;        		
+            		}
+            			
+            	}
+            } 
+            else if (arg.startsWith("--")) {
                 errorMessage = "Unknown option: " + arg;
             } else {
                 videoFiles.add(arg);
@@ -118,14 +147,19 @@ public class CommandLineController {
         }
 
         if (videoFiles.size() > 1) {
+        	System.out.println("Size of vid: " + videoFiles.size());
+        	
             errorMessage = "Usage: VideoPlayer [options] [video-file]";
         } else if (videoFiles.size() == 1) {
+        	System.out.println("Size of vid: " + videoFiles.size());
+        	 System.out.println("Size of frame: " + frameList.size()); 
             videoFile = new File(videoFiles.get(0));
             if (!videoFile.isFile()) {
                 errorMessage = "File not found: " + videoFile.getPath();
                 videoFile = null;
             }
         } else {
+        	System.out.println("Size of vid: " + videoFiles.size());
             if (!helpRequested) {
                 errorMessage = "No video file specified.";
             }
