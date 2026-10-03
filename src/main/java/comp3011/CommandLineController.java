@@ -92,6 +92,24 @@ public class CommandLineController {
                 setDisplayId(2);
             } else if ("-s".equals(arg) || "--scratch-frames".equals(arg)) {
             	frameList.add(new FrameScratcher());
+            } else if ("-f".equals(arg) || "--flicker-frames".equals(arg)) {
+            	frameList.add(new FrameFlickerer());
+            } else if ("-w".equals(arg) || "--black-and-white".equals(arg)) {
+            	frameList.add(new FrameBlackAndWhiter());
+            } else if ("-y".equals(arg) || "--yellow-frames".equals(arg)) {
+            	frameList.add(new FrameYellower());
+            } else if ("-v".equals(arg) || "--vignette-frames".equals(arg)) {
+            	frameList.add(new FrameVignetter());
+            } else if ("-d".equals(arg) || "--dust-frames".equals(arg)) {
+            	frameList.add(new FrameDuster());
+            } else if ("-m".equals(arg) || "--mottle-frames ".equals(arg)) {
+            	frameList.add(new FrameMottler());
+            } else if ("-j".equals(arg) || "--jitter-frames".equals(arg)) {
+            	frameList.add(new FrameJitterer());
+            } else if ("-b".equals(arg) || "--bleed-frames".equals(arg)) {
+            	frameList.add(new FrameBleeder());
+            } else if ("-p".equals(arg) || "--pepper-frames".equals(arg)) {
+            	frameList.add(new FramePepperer());
             } else if (arg.startsWith("-")) {
                 errorMessage = "Unknown option: " + arg;
             } else {
