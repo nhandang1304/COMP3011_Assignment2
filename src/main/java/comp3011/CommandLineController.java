@@ -14,6 +14,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+
 /**
  * Created in the VideoPlayerApp's main function to receive and parse the video player's command-line arguments.
  *
@@ -25,7 +26,7 @@ import java.util.List;
  */
 public class CommandLineController {
     private final String[] args;
-
+    private List<FrameProcessor> frameList;
     private boolean helpRequested;
     private boolean audioRequested;
     private boolean maximiseRequested;
@@ -35,6 +36,7 @@ public class CommandLineController {
 
     public CommandLineController(String[] args) {
         this.args = args.clone();
+        this.frameList = new ArrayList<>();
         parse();
         if (errorMessage != null) {
             System.out.println(errorMessage);
@@ -43,7 +45,9 @@ public class CommandLineController {
             printHelp();
         }
     }
-
+    public List<FrameProcessor>getFrameList() {
+    	return frameList;
+    }
     public File getVideoFile() {
         return videoFile;
     }
@@ -74,6 +78,7 @@ public class CommandLineController {
 
     private void parse() {
         List<String> videoFiles = new ArrayList<>();
+        
         for (String arg : args) {
             if ("-h".equals(arg) || "--help".equals(arg)) {
                 helpRequested = true;
@@ -85,6 +90,8 @@ public class CommandLineController {
                 setDisplayId(1);
             } else if ("-2".equals(arg) || "--monitor-2".equals(arg)) {
                 setDisplayId(2);
+            } else if ("-s".equals(arg) || "--scratch-frames".equals(arg)) {
+            	frameList.add(new FrameScratcher());
             } else if (arg.startsWith("-")) {
                 errorMessage = "Unknown option: " + arg;
             } else {

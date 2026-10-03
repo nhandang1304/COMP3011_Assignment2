@@ -78,6 +78,7 @@ public class VideoPlayerModel {
 	private boolean audioAvailable;
 	private boolean frameProcessorsInitialised;
 	private long currentTimestampUs;
+	
 	private long videoDurationUs = NO_SEEK_REQUEST;
 	private int videoFrameDurationUs; 
 	private double frameRate;
@@ -100,16 +101,16 @@ public class VideoPlayerModel {
 		this.playbackStateChangedHandler = playbackStateChangedHandler;
 		this.audioOutputStateChangedHandler = audioOutputStateChangedHandler;
 		this.frameProcessors = new ArrayList<>();
-		frameProcessors.add(new FrameBleeder());
-		frameProcessors.add(new FrameScratcher());
-		frameProcessors.add(new FrameDuster());
-		frameProcessors.add(new FramePepperer());
-		frameProcessors.add(new FrameBlackAndWhiter());
-		frameProcessors.add(new FrameYellower());
-		frameProcessors.add(new FrameVignetter());
-		frameProcessors.add(new FrameFlickerer());
-		frameProcessors.add(new FrameJitterer());
-		frameProcessors.add(new FrameNumberer());
+		//frameProcessors.add(new FrameBleeder());
+		//frameProcessors.add(new FrameScratcher());
+		//frameProcessors.add(new FrameDuster());
+		//frameProcessors.add(new FramePepperer());
+		//frameProcessors.add(new FrameBlackAndWhiter());
+		//frameProcessors.add(new FrameYellower());
+		//frameProcessors.add(new FrameVignetter());
+		//frameProcessors.add(new FrameFlickerer());
+		//frameProcessors.add(new FrameJitterer());
+		//frameProcessors.add(new FrameNumberer());
 	}
 
 	public void play(File file) {
@@ -239,7 +240,7 @@ public class VideoPlayerModel {
 		grabber.start();
 
 		notifyVideoSizeChanged(grabber.getImageWidth(), grabber.getImageHeight());
-
+	
 		frameRate = grabber.getFrameRate();
 		intFrameRate = (int) Math.round(frameRate);
 		videoFrameDurationUs = frameRate > 0 ? (int) Math.round(1_000_000.0 / frameRate) : 0;
