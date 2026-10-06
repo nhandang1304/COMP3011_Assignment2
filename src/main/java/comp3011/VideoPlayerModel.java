@@ -537,6 +537,7 @@ public class VideoPlayerModel {
 
 	private void processFrame(Frame frame, InfoFrame info) throws Exception {
 		for (FrameProcessor processor : frameProcessors) {
+			System.out.println(processor.getClass().getSimpleName());
 			processor.process(frame, info);
 		}
 	}

@@ -75,72 +75,68 @@ public class CommandLineController {
     public boolean shouldLaunchApplication() {
         return errorMessage == null && videoFile != null;
     }
-
+    
+    private boolean parseOptions(String option) {
+    	String stringOption = option;
+    	switch (stringOption) {
+		case "--help": helpRequested = true; break;
+		case "--audio": audioRequested = true; break;
+		case "--monitor-1": setDisplayId(1); break;
+		case "--monitor-2": setDisplayId(2); break;
+		case "--maximise": maximiseRequested = true; break;
+		case "--number-frames": frameList.add(new FrameNumberer()); break;
+		case "--scratch-frames": frameList.add(new FrameScratcher()); break;
+		case "--flicker-frames": frameList.add(new FrameFlickerer()); break;
+		case "--black-and-white": frameList.add(new FrameBlackAndWhiter()); break;
+		case "--yellow-frames": frameList.add(new FrameYellower()); break;
+		case "--vignette-frames": frameList.add(new FrameVignetter()); break;
+		case "--dust-frames": frameList.add(new FrameDuster()); break;
+		case "--mottle-frames": frameList.add(new FrameMottler()); break;
+		case "--jitter-frames": frameList.add(new FrameJitterer()); break;
+		case "--bleed-frames": frameList.add(new FrameBleeder()); break;
+		case "--pepper-frames": frameList.add(new FramePepperer()); break;	
+		default: errorMessage = "Unknown option: " + stringOption; return false;       		
+		}
+    	return true;
+    }
+    
+    private String convertOptionToString(char option) {
+    	switch (option) {
+		case 'h': return "--help";
+		case 'a': return "--audio";
+		case '1': return "--monitor-1"; 
+		case '2': return "--monitor-2"; 
+		case 'x': return"--maximise"; 
+		case 'n': return"--number-frames"; 
+		case 's': return"--scratch-frames";
+		case 'f': return"--flicker-frames"; 
+		case 'w': return"--black-and-white"; 
+		case 'y': return"--yellow-frames"; 
+		case 'v': return"--vignette-frames"; 
+		case 'd': return"--dust-frames"; 
+		case 'm': return"--mottle-frames"; 
+		case 'j': return"--jitter-frames"; 
+		case 'b': return"--bleed-frames"; 
+		case 'p': return"--pepper-frames";
+		default: return Character.toString(option);        		
+		}
+    }
     private void parse() {
         List<String> videoFiles = new ArrayList<>();
         
         for (String arg : args) {
-            if ("-h".equals(arg) || "--help".equals(arg)) {
-                helpRequested = true;
-            } else if ("-a".equals(arg) || "--audio".equals(arg)) {
-                audioRequested = true;
-            } else if ("-x".equals(arg) || "--maximise".equals(arg)) {
-                maximiseRequested = true;
-            } else if ("-1".equals(arg) || "--monitor-1".equals(arg)) {
-                setDisplayId(1);
-            } else if ("-2".equals(arg) || "--monitor-2".equals(arg)) {
-                setDisplayId(2);
-            } else if ("-n".equals(arg) || "--number-frames".equals(arg)) {
-            	frameList.add(new FrameNumberer());
-            } else if ("-s".equals(arg) || "--scratch-frames".equals(arg)) {
-            	frameList.add(new FrameScratcher());
-            } else if ("-f".equals(arg) || "--flicker-frames".equals(arg)) {
-            	frameList.add(new FrameFlickerer());
-            } else if ("-w".equals(arg) || "--black-and-white".equals(arg)) {
-            	frameList.add(new FrameBlackAndWhiter());
-            } else if ("-y".equals(arg) || "--yellow-frames".equals(arg)) {
-            	frameList.add(new FrameYellower());
-            } else if ("-v".equals(arg) || "--vignette-frames".equals(arg)) {
-            	frameList.add(new FrameVignetter());
-            } else if ("-d".equals(arg) || "--dust-frames".equals(arg)) {
-            	frameList.add(new FrameDuster());
-            } else if ("-m".equals(arg) || "--mottle-frames".equals(arg)) {
-            	frameList.add(new FrameMottler());
-            } else if ("-j".equals(arg) || "--jitter-frames".equals(arg)) {
-            	frameList.add(new FrameJitterer());
-            } else if ("-b".equals(arg) || "--bleed-frames".equals(arg)) {
-            	frameList.add(new FrameBleeder());
-            } else if ("-p".equals(arg) || "--pepper-frames".equals(arg)) {
-            	frameList.add(new FramePepperer());
-            } 
-            else if (arg.startsWith("-") && !arg.startsWith("--")) {
-            	
-            	for (int i = 1; i < arg.length(); i++) {
-            		char character = arg.charAt(i);
-            		switch (character) {
-            		case 'h': helpRequested = true; break;
-            		case 'a': audioRequested = true; break;
-            		case '1': setDisplayId(1); break;
-            		case '2': setDisplayId(2); break;
-            		case 'x': maximiseRequested = true; break;
-            		case 'n': frameList.add(new FrameNumberer()); break;
-            		case 's': frameList.add(new FrameScratcher()); break;
-            		case 'f': frameList.add(new FrameFlickerer()); break;
-            		case 'w': frameList.add(new FrameBlackAndWhiter()); break;
-            		case 'y': frameList.add(new FrameYellower()); break;
-            		case 'v': frameList.add(new FrameVignetter()); break;
-            		case 'd': frameList.add(new FrameDuster()); break;
-            		case 'm': frameList.add(new FrameMottler()); break;
-            		case 'j': frameList.add(new FrameJitterer()); break;
-            		case 'b': frameList.add(new FrameBleeder()); break;
-            		case 'p': frameList.add(new FramePepperer()); break;
-            		default: errorMessage = "Unknown option: -" + character; return;        		
-            		}
+            if (arg.startsWith("-") && !arg.startsWith("--")) {
+            	for (int i=1; i< arg.length(); i++) {
+            		String stringOption = convertOptionToString(arg.charAt(i));
+            		if (!parseOptions(stringOption)) {
             			
+            			break;
+            		}
+            		
             	}
-            } 
+            }
             else if (arg.startsWith("--")) {
-                errorMessage = "Unknown option: " + arg;
+            	parseOptions(arg);
             } else {
                 videoFiles.add(arg);
             }
