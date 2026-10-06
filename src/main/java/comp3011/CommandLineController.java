@@ -128,8 +128,7 @@ public class CommandLineController {
             if (arg.startsWith("-") && !arg.startsWith("--")) {
             	for (int i=1; i< arg.length(); i++) {
             		String stringOption = convertOptionToString(arg.charAt(i));
-            		if (!parseOptions(stringOption)) {
-            			
+            		if (!parseOptions(stringOption)) {            			
             			break;
             		}
             		
