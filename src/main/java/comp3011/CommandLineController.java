@@ -95,7 +95,7 @@ public class CommandLineController {
 		case "--jitter-frames": frameList.add(new FrameJitterer()); break;
 		case "--bleed-frames": frameList.add(new FrameBleeder()); break;
 		case "--pepper-frames": frameList.add(new FramePepperer()); break;	
-		default: errorMessage = "Unknown option: " + stringOption; return false;       		
+		default: frameList.clear();errorMessage = "Unknown option: " + stringOption; return false;       		
 		}
     	return true;
     }

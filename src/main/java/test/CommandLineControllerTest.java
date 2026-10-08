@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import comp3011.CommandLineController;
@@ -48,6 +47,14 @@ class CommandLineControllerTest {
 		assertInstanceOf(FrameFlickerer.class, frameProcessors.get(6));
 		assertInstanceOf(FrameDuster.class, frameProcessors.get(7));
 		
+		
+	}
+	@Test
+	void testInvalidParseFrameProcessor() {
+		CommandLineController controller = new CommandLineController(new String[] {"-fn9"});
+		int numberFrameProcessors = controller.getFrameList().size();
+		assertEquals(0, numberFrameProcessors);
+		assertNotNull(controller.getErrorMessage());
 		
 	}
 }
