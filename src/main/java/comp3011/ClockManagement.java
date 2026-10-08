@@ -45,4 +45,23 @@ public class ClockManagement {
 	public void setRelativeSeekBaseUs(long timestamp) {
 		relativeSeekBaseUs = timestamp;
 	}
+	
+	public long getFirstTimestampUs() {
+		return firstTimestampUs;
+	}
+	public long getLogicalPlaybackBaseUs() {
+		return logicalPlaybackBaseUs;
+	}
+	public long getCurrentTimestampUs() {
+		return currentTimestampUs;
+	}
+	public long getPlaybackStartNs() {
+		return playbackStartNs;
+	}
+	public long getPauseStartedNs() {
+		return pauseStartedNs;
+	}
+	public long getRelativeSeekBaseUs() {
+		return relativeSeekBaseUs;
+	}
 }
