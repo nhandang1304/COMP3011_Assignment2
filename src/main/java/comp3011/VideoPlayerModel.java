@@ -65,7 +65,7 @@ public class VideoPlayerModel {
 			pumpPlayback(now);
 		}
 	};
-
+	private final ClockManagement clock;
 	private File videoFile; // Path to the media that comes from the command line
 	private FFmpegFrameGrabber grabber; // This is the 3rd party video media decoder. It deals in JavaCV Frame objects.
 	private JavaFXFrameConverter converter; // Takes Frame objects to JavaFX Image objects, which can be put on screen.
@@ -95,6 +95,7 @@ public class VideoPlayerModel {
 			BiConsumer<Boolean, Boolean> playbackStateChangedHandler,
 			Consumer<Boolean> audioOutputStateChangedHandler,
 			List<FrameProcessor> frameProcessorList) {
+		clock = new ClockManagement(NO_SEEK_REQUEST);
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
 		this.frameReadyHandler = frameReadyHandler;
@@ -152,7 +153,7 @@ public class VideoPlayerModel {
 			pauseStartedNs = System.nanoTime();
 			flushAudioOutput();
 		} else {
-			resumePlaybackClock(System.nanoTime());
+			clock.resumePlaybackClock(System.nanoTime());
 		}
 
 		notifyPlaybackStateChanged();
@@ -272,12 +273,12 @@ public class VideoPlayerModel {
 		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
 	}
 
-	private void resumePlaybackClock(long now) {
-		if (pauseStartedNs > 0 && playbackStartNs > 0) {
-			playbackStartNs += now - pauseStartedNs;
-		}
-		pauseStartedNs = 0;
-	}
+//	private void resumePlaybackClock(long now) {
+//		if (pauseStartedNs > 0 && playbackStartNs > 0) {
+//			playbackStartNs += now - pauseStartedNs;
+//		}
+//		pauseStartedNs = 0;
+//	}
 
 	private void prepareNextFrame() {
 		if (!playbackOpen || preparedFrame != null) {
