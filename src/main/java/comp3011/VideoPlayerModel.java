@@ -158,7 +158,7 @@ public class VideoPlayerModel {
 
 		notifyPlaybackStateChanged();
 	}
-
+	
 	public void toggleAudioOutput() {
 		audioOutputEnabled = !audioOutputEnabled;
 		pendingAudio.clear();
@@ -265,12 +265,13 @@ public class VideoPlayerModel {
 	private void resetPlaybackClock(long logicalTimestampUs) {
 		pendingAudio.clear();
 		preparedFrame = null;
-		currentTimestampUs = logicalTimestampUs;
-		relativeSeekBaseUs = logicalTimestampUs;
-		firstTimestampUs = NO_SEEK_REQUEST;
-		logicalPlaybackBaseUs = logicalTimestampUs;
-		playbackStartNs = 0;
-		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
+//		currentTimestampUs = logicalTimestampUs;
+//		relativeSeekBaseUs = logicalTimestampUs;
+//		firstTimestampUs = NO_SEEK_REQUEST;
+//		logicalPlaybackBaseUs = logicalTimestampUs;
+//		playbackStartNs = 0;
+//		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
+		clock.resetPlaybackClock(pauseRequested, logicalTimestampUs, NO_SEEK_REQUEST);
 	}
 
 //	private void resumePlaybackClock(long now) {
@@ -538,7 +539,7 @@ public class VideoPlayerModel {
 
 	private void processFrame(Frame frame, InfoFrame info) throws Exception {
 		for (FrameProcessor processor : frameProcessors) {
-			System.out.println(processor.getClass().getSimpleName());
+			
 			processor.process(frame, info);
 		}
 	}

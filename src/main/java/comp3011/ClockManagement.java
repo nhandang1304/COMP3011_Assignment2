@@ -19,12 +19,30 @@ public class ClockManagement {
 		}
 		pauseStartedNs = 0;
 	}
-	public void resetPlaybackClock(long logicalTimestampUs, long noSeekRequest) {
+	public void resetPlaybackClock(boolean pauseRequested, long logicalTimestampUs, long noSeekRequest) {
 		currentTimestampUs = logicalTimestampUs;
 		relativeSeekBaseUs = logicalTimestampUs;
 		firstTimestampUs = noSeekRequest;
 		logicalPlaybackBaseUs = logicalTimestampUs;
 		playbackStartNs = 0;
-		
+		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
+	}
+	public void setFirstTimestampUs(long timestamp) {
+		firstTimestampUs = timestamp;
+	}
+	public void setLogicalPlaybackBaseUs(long timestamp) {
+		logicalPlaybackBaseUs = timestamp;
+	}
+	public void setCurrentTimestampUs(long timestamp) {
+		currentTimestampUs = timestamp;
+	}
+	public void setPlaybackStartNs(long timestamp) {
+		playbackStartNs = timestamp;
+	}
+	public void setPauseStartedNs(long timestamp) {
+		pauseStartedNs = timestamp;
+	}
+	public void setRelativeSeekBaseUs(long timestamp) {
+		relativeSeekBaseUs = timestamp;
 	}
 }
