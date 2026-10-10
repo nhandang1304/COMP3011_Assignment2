@@ -65,6 +65,7 @@ public class VideoPlayerModel {
 			pumpPlayback(now);
 		}
 	};
+	private final FramePreparedProducer framePreparedProducer;
 	private final ClockManagement clock;
 	private File videoFile; // Path to the media that comes from the command line
 	private FFmpegFrameGrabber grabber; // This is the 3rd party video media decoder. It deals in JavaCV Frame objects.
@@ -95,7 +96,9 @@ public class VideoPlayerModel {
 			BiConsumer<Boolean, Boolean> playbackStateChangedHandler,
 			Consumer<Boolean> audioOutputStateChangedHandler,
 			List<FrameProcessor> frameProcessorList) {
+		
 		clock = new ClockManagement(NO_SEEK_REQUEST);
+		framePreparedProducer = new FramePreparedProducer(clock);
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
 		this.frameReadyHandler = frameReadyHandler;
@@ -103,16 +106,7 @@ public class VideoPlayerModel {
 		this.playbackStateChangedHandler = playbackStateChangedHandler;
 		this.audioOutputStateChangedHandler = audioOutputStateChangedHandler;
 		this.frameProcessors = frameProcessorList;
-		//frameProcessors.add(new FrameBleeder());
-		//frameProcessors.add(new FrameScratcher());
-		//frameProcessors.add(new FrameDuster());
-		//frameProcessors.add(new FramePepperer());
-		//frameProcessors.add(new FrameBlackAndWhiter());
-		//frameProcessors.add(new FrameYellower());
-		//frameProcessors.add(new FrameVignetter());
-		//frameProcessors.add(new FrameFlickerer());
-		//frameProcessors.add(new FrameJitterer());
-		//frameProcessors.add(new FrameNumberer());
+		
 	}
 
 	public void play(File file) {
@@ -589,7 +583,7 @@ public class VideoPlayerModel {
 		audioOutputStateChangedHandler.accept(audioOutputEnabled);
 	}
 
-	private record PreparedFrame(Image image, int frameNumber, long mediaTimestampUs, long logicalTimestampUs,
+	/*private*/ public record PreparedFrame(Image image, int frameNumber, long mediaTimestampUs, long logicalTimestampUs,
 			long targetTimeNs, long preparedAtNs) {
 	}
 
