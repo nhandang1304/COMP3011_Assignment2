@@ -81,10 +81,11 @@ public class VideoPlayerModel {
 //	private long currentTimestampUs;
 	
 	private long videoDurationUs = NO_SEEK_REQUEST;
-	private int videoFrameDurationUs; 
-	private double frameRate;
-	private int intFrameRate;
-	private int totalVideoFrames;
+	private VideoFrameInfo videoFrameInfo;
+//	private int videoFrameDurationUs; 
+//	private double frameRate;
+//	private int intFrameRate;
+//	private int totalVideoFrames;
 //	private long firstTimestampUs = NO_SEEK_REQUEST;
 //	private long logicalPlaybackBaseUs;
 //	private long playbackStartNs;
@@ -98,7 +99,7 @@ public class VideoPlayerModel {
 			List<FrameProcessor> frameProcessorList) {
 		
 		clock = new ClockManagement(NO_SEEK_REQUEST);
-		framePreparedProducer = new FramePreparedProducer(clock);
+		framePreparedProducer = new FramePreparedProducer();
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
 		this.frameReadyHandler = frameReadyHandler;
@@ -112,7 +113,8 @@ public class VideoPlayerModel {
 	public void play(File file) {
 		videoFile = file;
 		videoDurationUs = NO_SEEK_REQUEST;
-		videoFrameDurationUs = 0;
+		videoFrameInfo = VideoFrameInfo.UNKNOWN;
+		
 		startPlayback(0, false, NO_SEEK_REQUEST);
 	}
 
@@ -243,11 +245,11 @@ public class VideoPlayerModel {
 
 		notifyVideoSizeChanged(grabber.getImageWidth(), grabber.getImageHeight());
 	
-		frameRate = grabber.getFrameRate();
-		intFrameRate = (int) Math.round(frameRate);
-		videoFrameDurationUs = frameRate > 0 ? (int) Math.round(1_000_000.0 / frameRate) : 0;
-		totalVideoFrames = grabber.getLengthInVideoFrames();
-
+		double frameRate = grabber.getFrameRate();
+//		intFrameRate = (int) Math.round(frameRate);
+//		videoFrameDurationUs = frameRate > 0 ? (int) Math.round(1_000_000.0 / frameRate) : 0;
+		int totalVideoFrames = grabber.getLengthInVideoFrames();	
+		videoFrameInfo = VideoFrameInfo.of(totalVideoFrames, frameRate);
 		long durationUs = grabber.getLengthInTime();
 		videoDurationUs = durationUs > 0 ? durationUs : NO_SEEK_REQUEST;
 
@@ -293,53 +295,53 @@ public class VideoPlayerModel {
 		}
 	}
 
-	private PreparedFrame readNextVideoFrame() throws Exception {
-		while (playbackOpen) {
-			Frame frame = grabFrame();
-			if (frame == null) {
-				finishPlayback();
-				return null;
-			}
-
-			long timestampUs = grabber.getTimestamp();
-			if (audioAvailable && frame.samples != null) {
-				queueAudio(timestampUs, frame);
-			}
-
-			if (frame.image == null) {
-				continue;
-			}
-
-			if (!frameProcessorsInitialised) {
-				initialiseFrameProcessors(new InfoVideo(mediaName(videoFile), totalVideoFrames, frame.imageWidth,
-						frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, frameRate,
-						intFrameRate, videoFrameDurationUs, grabber.getPixelFormat()));
-				frameProcessorsInitialised = true;
-			}
-
-			if (clock.getFirstTimestampUs() == NO_SEEK_REQUEST) {
-				clock.setFirstTimestampUs(timestampUs);
-				clock.setPlaybackStartNs(System.nanoTime()); 
-				if (pauseRequested) {
-					clock.setPauseStartedNs(clock.getPlaybackStartNs());
-				}
-			}
-
-			int frameNumber = grabber.getFrameNumber();
-			InfoFrame info = new InfoFrame(frameNumber, timestampUs);
-			processFrame(frame, info);
-
-			Image image = converter.convert(frame);
-			long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
-			long logicalTimestampUs = clock.getLogicalPlaybackBaseUs() + relativeTimestampUs;
-			long targetTimeNs = clock.getPlaybackStartNs() + relativeTimestampUs * 1_000L;
-
-			return new PreparedFrame(image, frameNumber, timestampUs, logicalTimestampUs, targetTimeNs,
-					System.nanoTime());
-		}
-
-		return null;
-	}
+//	private PreparedFrame readNextVideoFrame() throws Exception {
+//		while (playbackOpen) {
+//			Frame frame = grabFrame();
+//			if (frame == null) {
+//				finishPlayback();
+//				return null;
+//			}
+//
+//			long timestampUs = grabber.getTimestamp();
+//			if (audioAvailable && frame.samples != null) {
+//				queueAudio(timestampUs, frame);
+//			}
+//
+//			if (frame.image == null) {
+//				continue;
+//			}
+//
+//			if (!frameProcessorsInitialised) {
+//				initialiseFrameProcessors(new InfoVideo(mediaName(videoFile), totalVideoFrames, frame.imageWidth,
+//						frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, frameRate,
+//						intFrameRate, videoFrameDurationUs, grabber.getPixelFormat()));
+//				frameProcessorsInitialised = true;
+//			}
+//
+//			if (clock.getFirstTimestampUs() == NO_SEEK_REQUEST) {
+//				clock.setFirstTimestampUs(timestampUs);
+//				clock.setPlaybackStartNs(System.nanoTime()); 
+//				if (pauseRequested) {
+//					clock.setPauseStartedNs(clock.getPlaybackStartNs());
+//				}
+//			}
+//
+//			int frameNumber = grabber.getFrameNumber();
+//			InfoFrame info = new InfoFrame(frameNumber, timestampUs);
+//			processFrame(frame, info);
+//
+//			Image image = converter.convert(frame);
+//			long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
+//			long logicalTimestampUs = clock.getLogicalPlaybackBaseUs() + relativeTimestampUs;
+//			long targetTimeNs = clock.getPlaybackStartNs() + relativeTimestampUs * 1_000L;
+//
+//			return new PreparedFrame(image, frameNumber, timestampUs, logicalTimestampUs, targetTimeNs,
+//					System.nanoTime());
+//		}
+//
+//		return null;
+//	}
 
 	// This is called on a heart beat by the GUI thread. We want to be co-operative
 	// here by (a) not blocking, and (b)
@@ -394,14 +396,14 @@ public class VideoPlayerModel {
 
 		// Dump some logging to the console once per second so that real time
 		// performance can be monitored.
-		if (intFrameRate > 0 && frame.frameNumber() % intFrameRate == 0) {
+		if (videoFrameInfo.intFrameRate() > 0 && frame.frameNumber() % videoFrameInfo.intFrameRate() == 0) {
 			long remainingUs = (frame.targetTimeNs() - frame.preparedAtNs()) / 1_000L;
 			if (remainingUs < 0) {
 				System.out.printf("Frame headroom is \u001B[31m%5dus\u001B[0m out of %dus spare.%n", remainingUs,
-						videoFrameDurationUs);
+						videoFrameInfo.videoFrameDurationUs());
 			} else {
 				System.out.printf("Frame headroom is \u001B[32m%5dus\u001B[0m out of %dus spare.%n", remainingUs,
-						videoFrameDurationUs);
+						videoFrameInfo.videoFrameDurationUs());
 			}
 		}
 
@@ -529,7 +531,7 @@ public class VideoPlayerModel {
 			return logicalTimestampUs;
 		}
 
-		int frameDurationUs = videoFrameDurationUs;
+		int frameDurationUs = videoFrameInfo.videoFrameDurationUs();
 		if (frameDurationUs <= 0) {
 			return Math.max(0, durationUs - 1);
 		}
@@ -583,9 +585,7 @@ public class VideoPlayerModel {
 		audioOutputStateChangedHandler.accept(audioOutputEnabled);
 	}
 
-	/*private*/ public record PreparedFrame(Image image, int frameNumber, long mediaTimestampUs, long logicalTimestampUs,
-			long targetTimeNs, long preparedAtNs) {
-	}
+	
 
 	private static class PendingAudio {
 		private final long timestampUs;
