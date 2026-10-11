@@ -33,7 +33,7 @@ public class VideoPlayerController {
 
     public VideoPlayerController(
             boolean audioEnabled,
-            List<FrameProcessor> frameList,
+            List<FrameProcessor> frameProcessorList,
             BiConsumer<Integer, Integer> videoSizeChangedHandler) {
         this.view = new VideoPlayerView();
         this.videoSizeChangedHandler = videoSizeChangedHandler;
@@ -44,7 +44,7 @@ public class VideoPlayerController {
                 this::onStatusChanged,
                 this::onPlaybackStateChanged,
                 this::onAudioOutputStateChanged,
-                frameList);
+                frameProcessorList);
         	
         view.getStartOverButton().setOnAction(_ -> startOver());
         view.getBackFiveButton().setOnAction(_ -> backFiveSeconds());

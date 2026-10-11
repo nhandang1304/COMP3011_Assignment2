@@ -26,7 +26,7 @@ import java.util.List;
  */
 public class CommandLineController {
     private final String[] args;
-    private List<FrameProcessor> frameList;
+    private List<FrameProcessor> frameProcessorList;
     private boolean helpRequested;
     private boolean audioRequested;
     private boolean maximiseRequested;
@@ -36,7 +36,7 @@ public class CommandLineController {
 
     public CommandLineController(String[] args) {
         this.args = args.clone();
-        this.frameList = new ArrayList<>();
+        this.frameProcessorList = new ArrayList<>();
         parse();
         if (errorMessage != null) {
             System.out.println(errorMessage);
@@ -45,8 +45,8 @@ public class CommandLineController {
             printHelp();
         }
     }
-    public List<FrameProcessor>getFrameList() {
-    	return frameList;
+    public List<FrameProcessor>getFrameProcessorList() {
+    	return frameProcessorList;
     }
     public File getVideoFile() {
         return videoFile;
@@ -84,18 +84,18 @@ public class CommandLineController {
 		case "--monitor-1": setDisplayId(1); break;
 		case "--monitor-2": setDisplayId(2); break;
 		case "--maximise": maximiseRequested = true; break;
-		case "--number-frames": frameList.add(new FrameNumberer()); break;
-		case "--scratch-frames": frameList.add(new FrameScratcher()); break;
-		case "--flicker-frames": frameList.add(new FrameFlickerer()); break;
-		case "--black-and-white": frameList.add(new FrameBlackAndWhiter()); break;
-		case "--yellow-frames": frameList.add(new FrameYellower()); break;
-		case "--vignette-frames": frameList.add(new FrameVignetter()); break;
-		case "--dust-frames": frameList.add(new FrameDuster()); break;
-		case "--mottle-frames": frameList.add(new FrameMottler()); break;
-		case "--jitter-frames": frameList.add(new FrameJitterer()); break;
-		case "--bleed-frames": frameList.add(new FrameBleeder()); break;
-		case "--pepper-frames": frameList.add(new FramePepperer()); break;	
-		default: frameList.clear();errorMessage = "Unknown option: " + stringOption; return false;       		
+		case "--number-frames": frameProcessorList.add(new FrameNumberer()); break;
+		case "--scratch-frames": frameProcessorList.add(new FrameScratcher()); break;
+		case "--flicker-frames": frameProcessorList.add(new FrameFlickerer()); break;
+		case "--black-and-white": frameProcessorList.add(new FrameBlackAndWhiter()); break;
+		case "--yellow-frames": frameProcessorList.add(new FrameYellower()); break;
+		case "--vignette-frames": frameProcessorList.add(new FrameVignetter()); break;
+		case "--dust-frames": frameProcessorList.add(new FrameDuster()); break;
+		case "--mottle-frames": frameProcessorList.add(new FrameMottler()); break;
+		case "--jitter-frames": frameProcessorList.add(new FrameJitterer()); break;
+		case "--bleed-frames": frameProcessorList.add(new FrameBleeder()); break;
+		case "--pepper-frames": frameProcessorList.add(new FramePepperer()); break;	
+		default: frameProcessorList.clear();errorMessage = "Unknown option: " + stringOption; return false;       		
 		}
     	return true;
     }
@@ -147,7 +147,7 @@ public class CommandLineController {
             errorMessage = "Usage: VideoPlayer [options] [video-file]";
         } else if (videoFiles.size() == 1) {
         	System.out.println("Size of vid: " + videoFiles.size());
-        	 System.out.println("Size of frame: " + frameList.size()); 
+        	 System.out.println("Size of frame: " + frameProcessorList.size()); 
             videoFile = new File(videoFiles.get(0));
             if (!videoFile.isFile()) {
                 errorMessage = "File not found: " + videoFile.getPath();

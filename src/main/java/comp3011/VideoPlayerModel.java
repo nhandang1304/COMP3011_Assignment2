@@ -99,7 +99,7 @@ public class VideoPlayerModel {
 			List<FrameProcessor> frameProcessorList) {
 		
 		clock = new ClockManagement(NO_SEEK_REQUEST);
-		framePreparedProducer = new FramePreparedProducer();
+		
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
 		this.frameReadyHandler = frameReadyHandler;
@@ -107,7 +107,7 @@ public class VideoPlayerModel {
 		this.playbackStateChangedHandler = playbackStateChangedHandler;
 		this.audioOutputStateChangedHandler = audioOutputStateChangedHandler;
 		this.frameProcessors = frameProcessorList;
-		
+		framePreparedProducer = new FramePreparedProducer(converter, grabber, videoFrameInfo, clock, frameProcessors, () -> audioAvailable, () -> playbackOpen);
 	}
 
 	public void play(File file) {
@@ -289,7 +289,7 @@ public class VideoPlayerModel {
 		}
 
 		try {
-			preparedFrame = readNextVideoFrame();
+			preparedFrame = framePreparedProducer.readNextVideoFrame();
 		} catch (Exception e) {
 			handlePlaybackError(e);
 		}
