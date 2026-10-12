@@ -39,7 +39,7 @@ import javafx.scene.image.Image;
  * </p>
  */
 public class VideoPlayerModel {
-	private static final long NO_SEEK_REQUEST = -1; // Sentinel value used when no seek position is active.
+	//private static final long NO_SEEK_REQUEST = -1; // Sentinel value used when no seek position is active.
 	private static final long FIVE_SECONDS_US = 5_000_000L;
 	private static final long AUDIO_LEAD_NS = 30_000_000L;
 
@@ -65,7 +65,7 @@ public class VideoPlayerModel {
 			pumpPlayback(now);
 		}
 	};
-	private final FramePreparedProducer framePreparedProducer;
+	private FramePreparedProducer framePreparedProducer;
 	private final ClockManagement clock;
 	private File videoFile; // Path to the media that comes from the command line
 	private FFmpegFrameGrabber grabber; // This is the 3rd party video media decoder. It deals in JavaCV Frame objects.
@@ -80,7 +80,7 @@ public class VideoPlayerModel {
 	private boolean frameProcessorsInitialised;
 //	private long currentTimestampUs;
 	
-	private long videoDurationUs = NO_SEEK_REQUEST;
+	private long videoDurationUs = ClockManagement.NO_SEEK_REQUEST;
 	private VideoFrameInfo videoFrameInfo;
 //	private int videoFrameDurationUs; 
 //	private double frameRate;
@@ -98,7 +98,7 @@ public class VideoPlayerModel {
 			Consumer<Boolean> audioOutputStateChangedHandler,
 			List<FrameProcessor> frameProcessorList) {
 		
-		clock = new ClockManagement(NO_SEEK_REQUEST);
+		clock = new ClockManagement();
 		
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
@@ -107,15 +107,15 @@ public class VideoPlayerModel {
 		this.playbackStateChangedHandler = playbackStateChangedHandler;
 		this.audioOutputStateChangedHandler = audioOutputStateChangedHandler;
 		this.frameProcessors = frameProcessorList;
-		framePreparedProducer = new FramePreparedProducer(converter, grabber, videoFrameInfo, clock, frameProcessors, () -> audioAvailable, () -> playbackOpen);
+		
 	}
 
 	public void play(File file) {
 		videoFile = file;
-		videoDurationUs = NO_SEEK_REQUEST;
+		videoDurationUs = ClockManagement.NO_SEEK_REQUEST;
 		videoFrameInfo = VideoFrameInfo.UNKNOWN;
 		
-		startPlayback(0, false, NO_SEEK_REQUEST);
+		startPlayback(0, false, ClockManagement.NO_SEEK_REQUEST);
 	}
 
 	public void startOver() {
@@ -143,7 +143,7 @@ public class VideoPlayerModel {
 		}
 
 		pauseRequested = !pauseRequested;
-		clock.setRelativeSeekBaseUs(NO_SEEK_REQUEST);
+		clock.setRelativeSeekBaseUs(ClockManagement.NO_SEEK_REQUEST);
 
 		if (pauseRequested) {
 			clock.setPauseStartedNs(System.nanoTime());
@@ -184,7 +184,7 @@ public class VideoPlayerModel {
 			return;
 		}
 
-		long baseTimestampUs = clock.getRelativeSeekBaseUs() != NO_SEEK_REQUEST ? clock.getRelativeSeekBaseUs() : clock.getCurrentTimestampUs();
+		long baseTimestampUs = clock.getRelativeSeekBaseUs() != ClockManagement.NO_SEEK_REQUEST ? clock.getRelativeSeekBaseUs() : clock.getCurrentTimestampUs();
 		seekTo(baseTimestampUs + offsetUs);
 	}
 
@@ -212,13 +212,13 @@ public class VideoPlayerModel {
 		closePlaybackResources();
 
 		pauseRequested = initiallyPaused;
-		if (initialRelativeSeekBaseUs != NO_SEEK_REQUEST) {
+		if (initialRelativeSeekBaseUs != ClockManagement.NO_SEEK_REQUEST) {
 			clock.setCurrentTimestampUs(initialRelativeSeekBaseUs);
 		}
 		else {
 			clock.setCurrentTimestampUs(startTimestampUs);
 		}
-//		currentTimestampUs = initialRelativeSeekBaseUs != NO_SEEK_REQUEST ? initialRelativeSeekBaseUs
+//		currentTimestampUs = initialRelativeSeekBaseUs != ClockManagement.NO_SEEK_REQUEST ? initialRelativeSeekBaseUs
 //				: startTimestampUs;
 		clock.setRelativeSeekBaseUs(initialRelativeSeekBaseUs);
 
@@ -226,6 +226,7 @@ public class VideoPlayerModel {
 
 		try {
 			openPlaybackResources(startTimestampUs);
+			framePreparedProducer = new FramePreparedProducer(mediaName(videoFile), converter, grabber, videoFrameInfo, clock, frameProcessors,() -> pauseRequested, audioAvailable, () -> playbackOpen, this::finishPlayback, this::queueAudio);
 			resetPlaybackClock(clock.getCurrentTimestampUs());
 			playbackOpen = true;
 			playbackTimer.start();
@@ -251,7 +252,7 @@ public class VideoPlayerModel {
 		int totalVideoFrames = grabber.getLengthInVideoFrames();	
 		videoFrameInfo = VideoFrameInfo.of(totalVideoFrames, frameRate);
 		long durationUs = grabber.getLengthInTime();
-		videoDurationUs = durationUs > 0 ? durationUs : NO_SEEK_REQUEST;
+		videoDurationUs = durationUs > 0 ? durationUs : ClockManagement.NO_SEEK_REQUEST;
 
 		audioAvailable = grabber.hasAudio();
 		audioPlayer = new AudioPlayer();
@@ -269,11 +270,11 @@ public class VideoPlayerModel {
 		preparedFrame = null;
 //		currentTimestampUs = logicalTimestampUs;
 //		relativeSeekBaseUs = logicalTimestampUs;
-//		firstTimestampUs = NO_SEEK_REQUEST;
+//		firstTimestampUs = ClockManagement.NO_SEEK_REQUEST;
 //		logicalPlaybackBaseUs = logicalTimestampUs;
 //		playbackStartNs = 0;
 //		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
-		clock.resetPlaybackClock(pauseRequested, logicalTimestampUs, NO_SEEK_REQUEST);
+		clock.resetPlaybackClock(pauseRequested, logicalTimestampUs, ClockManagement.NO_SEEK_REQUEST);
 	}
 
 //	private void resumePlaybackClock(long now) {
@@ -319,7 +320,7 @@ public class VideoPlayerModel {
 //				frameProcessorsInitialised = true;
 //			}
 //
-//			if (clock.getFirstTimestampUs() == NO_SEEK_REQUEST) {
+//			if (clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST) {
 //				clock.setFirstTimestampUs(timestampUs);
 //				clock.setPlaybackStartNs(System.nanoTime()); 
 //				if (pauseRequested) {
@@ -392,7 +393,7 @@ public class VideoPlayerModel {
 		PreparedFrame frame = preparedFrame;
 		preparedFrame = null;
 		clock.setCurrentTimestampUs(frame.logicalTimestampUs());
-		clock.setRelativeSeekBaseUs(NO_SEEK_REQUEST);
+		clock.setRelativeSeekBaseUs(ClockManagement.NO_SEEK_REQUEST);
 
 		// Dump some logging to the console once per second so that real time
 		// performance can be monitored.
@@ -427,7 +428,7 @@ public class VideoPlayerModel {
 			pendingAudio.clear();
 			return;
 		}
-		if (pauseRequested || clock.getFirstTimestampUs() == NO_SEEK_REQUEST || clock.getPlaybackStartNs() <= 0) {
+		if (pauseRequested || clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST || clock.getPlaybackStartNs() <= 0) {
 			return;
 		}
 
@@ -453,7 +454,7 @@ public class VideoPlayerModel {
 	}
 
 	private void finishPlayback() {
-		long endTimestampUs = videoDurationUs != NO_SEEK_REQUEST ? videoDurationUs : clock.getCurrentTimestampUs();
+		long endTimestampUs = videoDurationUs != ClockManagement.NO_SEEK_REQUEST ? videoDurationUs : clock.getCurrentTimestampUs();
 
 		closePlaybackResources();
 		pauseRequested = true;
@@ -476,7 +477,7 @@ public class VideoPlayerModel {
 		playbackOpen = false;
 		preparedFrame = null;
 		pendingAudio.clear();
-		clock.setFirstTimestampUs(NO_SEEK_REQUEST);
+		clock.setFirstTimestampUs(ClockManagement.NO_SEEK_REQUEST);
 		clock.setPlaybackStartNs(0);
 		clock.setPauseStartedNs(0);
 		audioAvailable = false;
@@ -519,7 +520,7 @@ public class VideoPlayerModel {
 	private long clampSeekTimestamp(long timestampUs) {
 		long clampedTimestampUs = Math.max(0, timestampUs);
 		long durationUs = videoDurationUs;
-		if (durationUs != NO_SEEK_REQUEST) {
+		if (durationUs != ClockManagement.NO_SEEK_REQUEST) {
 			clampedTimestampUs = Math.min(clampedTimestampUs, durationUs);
 		}
 		return clampedTimestampUs;
@@ -527,7 +528,7 @@ public class VideoPlayerModel {
 
 	private long displayableSeekTimestamp(long logicalTimestampUs) {
 		long durationUs = videoDurationUs;
-		if (durationUs == NO_SEEK_REQUEST || logicalTimestampUs < durationUs) {
+		if (durationUs == ClockManagement.NO_SEEK_REQUEST || logicalTimestampUs < durationUs) {
 			return logicalTimestampUs;
 		}
 

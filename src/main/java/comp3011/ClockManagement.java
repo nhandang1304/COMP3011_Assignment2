@@ -1,16 +1,16 @@
 package comp3011;
 
 public class ClockManagement {
-	
+	static final long NO_SEEK_REQUEST = -1;
 	private long firstTimestampUs;
 	private long logicalPlaybackBaseUs;
 	private long currentTimestampUs;
 	private long playbackStartNs;
 	private long pauseStartedNs;
 	private long relativeSeekBaseUs;
-	ClockManagement(long noSeekRequest){
-		this.firstTimestampUs = noSeekRequest;
-		this.relativeSeekBaseUs = noSeekRequest;
+	ClockManagement(){
+		this.firstTimestampUs = NO_SEEK_REQUEST;
+		this.relativeSeekBaseUs = NO_SEEK_REQUEST;
 	}
 	
 	public void resumePlaybackClock(long now) {
