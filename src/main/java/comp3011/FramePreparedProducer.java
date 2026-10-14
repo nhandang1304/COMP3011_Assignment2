@@ -31,7 +31,7 @@ public class FramePreparedProducer {
 	private String mediaName;
 	private final Runnable finishPlayback;
 	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(8);
+	BlockingQueue<Frame> frameQueue = new ArrayBlockingQueue<>(8);
 	private final BiConsumer<Long, Frame> queueAudio;
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
 								ClockManagement clock, List<FrameProcessor> frameProcessors, BooleanSupplier pauseRequested, boolean audioAvailable, 
@@ -82,24 +82,30 @@ public class FramePreparedProducer {
 		}
 	}
 	public PreparedFrame readNextVideoFrame() throws Exception {
-		 Future<PreparedFrame>[] preparedFrameList = new Future[8];
+		 Future<Frame>[] frameList = new Future[8];
 		while (playbackOpen.getAsBoolean()) {
-			threadPool.submit(() -> {Frame frame = grabFrame();
-			if (frame == null) {
-				finishPlayback.run();
-				return null;
-			}
+			for (int i = 0; i< frameList.length; i++) {
+				
+				frameList[i] = threadPool.submit(() -> {
+				Frame frame = grabFrame();
+				if (frame == null) {
+					finishPlayback.run();
+					return null;
+				}
 
-			long timestampUs = grabber.getTimestamp();
-			if (audioAvailable && frame.samples != null) {
-				queueAudio.accept(timestampUs, frame);
-			}
+				long timestampUs = grabber.getTimestamp();
+				if (audioAvailable && frame.samples != null) {
+					queueAudio.accept(timestampUs, frame);
+				}
 
-			if (frame.image == null) {
-				continue;
+				if (frame.image == null) {
+					continue;
+				}
+				frameQueue.put(frame);
+	}
 			}
 			
-}
+			
 			
 					);
 			
