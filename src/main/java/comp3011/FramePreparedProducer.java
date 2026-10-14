@@ -31,7 +31,7 @@ public class FramePreparedProducer {
 	private String mediaName;
 	private final Runnable finishPlayback;
 	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-	BlockingQueue<Frame> frameQueue = new ArrayBlockingQueue<>(8);
+	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(8);
 	private final BiConsumer<Long, Frame> queueAudio;
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
 								ClockManagement clock, List<FrameProcessor> frameProcessors, BooleanSupplier pauseRequested, boolean audioAvailable, 
@@ -81,62 +81,66 @@ public class FramePreparedProducer {
 			processor.process(frame, info);
 		}
 	}
-	public PreparedFrame readNextVideoFrame() throws Exception {
-		 Future<Frame>[] frameList = new Future[8];
-		while (playbackOpen.getAsBoolean()) {
+	public BlockingQueue<PreparedFrame> readNextVideoFrame() throws Exception {
+		 Future<PreparedFrame>[] frameList = new Future[8];
+		
 			for (int i = 0; i< frameList.length; i++) {
 				
 				frameList[i] = threadPool.submit(() -> {
-				Frame frame = grabFrame();
-				if (frame == null) {
-					finishPlayback.run();
-					return null;
+				while (playbackOpen.getAsBoolean()) {
+					Frame frame = grabFrame();
+					if (frame == null) {
+						finishPlayback.run();
+						return null;
+					}
+	
+					long timestampUs = grabber.getTimestamp();
+					if (audioAvailable && frame.samples != null) {
+						queueAudio.accept(timestampUs, frame);
+					}
+	
+					if (frame.image == null) {
+						continue;
+					}
+					if (!frameProcessorsInitialised) {
+						initialiseFrameProcessors(new InfoVideo(mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
+								frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, videoFrameInfo.frameRate(),
+								videoFrameInfo.intFrameRate(), videoFrameInfo.videoFrameDurationUs(), grabber.getPixelFormat()));
+						frameProcessorsInitialised = true;
+					}
+	
+					if (clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST) {
+						clock.setFirstTimestampUs(timestampUs);
+						clock.setPlaybackStartNs(System.nanoTime()); 
+						if (pauseRequested.getAsBoolean()) {
+							clock.setPauseStartedNs(clock.getPlaybackStartNs());
+						}
+					}
+	
+					int frameNumber = grabber.getFrameNumber();
+					InfoFrame info = new InfoFrame(frameNumber, timestampUs);
+					processFrame(frame, info);
+	
+					Image image = converter.convert(frame);
+					long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
+					long logicalTimestampUs = clock.getLogicalPlaybackBaseUs() + relativeTimestampUs;
+					long targetTimeNs = clock.getPlaybackStartNs() + relativeTimestampUs * 1_000L;
+	
+					return new PreparedFrame(image, frameNumber, timestampUs, logicalTimestampUs, targetTimeNs,
+							System.nanoTime());
 				}
+				return null;
+						
+						
+			});
+				for (Future<PreparedFrame> future : frameList) {
+				    PreparedFrame frame = future.get();
 
-				long timestampUs = grabber.getTimestamp();
-				if (audioAvailable && frame.samples != null) {
-					queueAudio.accept(timestampUs, frame);
+				    if (frame != null) {
+				        frameQueue.put(frame);
+				    }
 				}
-
-				if (frame.image == null) {
-					continue;
-				}
-				frameQueue.put(frame);
-	}
-			}
-			
-			
-			
-					);
-			
-			if (!frameProcessorsInitialised) {
-				initialiseFrameProcessors(new InfoVideo(mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
-						frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, videoFrameInfo.frameRate(),
-						videoFrameInfo.intFrameRate(), videoFrameInfo.videoFrameDurationUs(), grabber.getPixelFormat()));
-				frameProcessorsInitialised = true;
-			}
-
-			if (clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST) {
-				clock.setFirstTimestampUs(timestampUs);
-				clock.setPlaybackStartNs(System.nanoTime()); 
-				if (pauseRequested.getAsBoolean()) {
-					clock.setPauseStartedNs(clock.getPlaybackStartNs());
-				}
-			}
-
-			int frameNumber = grabber.getFrameNumber();
-			InfoFrame info = new InfoFrame(frameNumber, timestampUs);
-			processFrame(frame, info);
-
-			Image image = converter.convert(frame);
-			long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
-			long logicalTimestampUs = clock.getLogicalPlaybackBaseUs() + relativeTimestampUs;
-			long targetTimeNs = clock.getPlaybackStartNs() + relativeTimestampUs * 1_000L;
-
-			return new PreparedFrame(image, frameNumber, timestampUs, logicalTimestampUs, targetTimeNs,
-					System.nanoTime());
-		}
-
-		return null;
+			}		
+		return frameQueue;
 	}
 }
