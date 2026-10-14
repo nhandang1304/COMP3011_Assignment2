@@ -1,6 +1,12 @@
 package comp3011;
 
+import java.lang.reflect.Array;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 
@@ -24,6 +30,8 @@ public class FramePreparedProducer {
 	private BooleanSupplier playbackOpen;
 	private String mediaName;
 	private final Runnable finishPlayback;
+	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(8);
 	private final BiConsumer<Long, Frame> queueAudio;
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
 								ClockManagement clock, List<FrameProcessor> frameProcessors, BooleanSupplier pauseRequested, boolean audioAvailable, 
@@ -39,6 +47,10 @@ public class FramePreparedProducer {
 		this.mediaName = mediaName;
 		this.finishPlayback = finishPlayback;
 	    this.queueAudio = queueAudio;
+	    
+	    
+	    
+	   
 	}
 	
 	private Frame grabFrame() throws Exception {
@@ -70,8 +82,9 @@ public class FramePreparedProducer {
 		}
 	}
 	public PreparedFrame readNextVideoFrame() throws Exception {
+		 Future<PreparedFrame>[] preparedFrameList = new Future[8];
 		while (playbackOpen.getAsBoolean()) {
-			Frame frame = grabFrame();
+			threadPool.submit(() -> {Frame frame = grabFrame();
 			if (frame == null) {
 				finishPlayback.run();
 				return null;
@@ -85,7 +98,11 @@ public class FramePreparedProducer {
 			if (frame.image == null) {
 				continue;
 			}
-
+			
+}
+			
+					);
+			
 			if (!frameProcessorsInitialised) {
 				initialiseFrameProcessors(new InfoVideo(mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
 						frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, videoFrameInfo.frameRate(),

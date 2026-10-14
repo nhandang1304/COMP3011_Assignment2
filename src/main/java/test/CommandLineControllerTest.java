@@ -19,23 +19,23 @@ class CommandLineControllerTest {
 	@Test
 	void testParseCharacterFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"-f"});
-		int numberFrameProcessors = controller.getFrameList().size();
-		FrameProcessor frameType = controller.getFrameList().get(0);
+		int numberFrameProcessors = controller.getFrameProcessorList().size();
+		FrameProcessor frameType = controller.getFrameProcessorList().get(0);
 		assertEquals(1, numberFrameProcessors);
 		assertInstanceOf(FrameFlickerer.class, frameType);
 	}
 	@Test
 	void testParseStringFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"--scratch-frames"});
-		int numberFrameProcessors = controller.getFrameList().size();
-		FrameProcessor frameType = controller.getFrameList().get(0);
+		int numberFrameProcessors = controller.getFrameProcessorList().size();
+		FrameProcessor frameType = controller.getFrameProcessorList().get(0);
 		assertEquals(1, numberFrameProcessors);
 		assertInstanceOf(FrameScratcher.class, frameType);
 }
 	@Test
 	void testMixingParseFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"--jitter-frames", "--flicker-frames", "-fw", "--black-and-white", "-j", "-f", "-d"});
-		List<FrameProcessor> frameProcessors = controller.getFrameList();
+		List<FrameProcessor> frameProcessors = controller.getFrameProcessorList();
 		
 		assertEquals(8, frameProcessors.size());
 		assertInstanceOf(FrameJitterer.class, frameProcessors.get(0));
@@ -52,7 +52,7 @@ class CommandLineControllerTest {
 	@Test
 	void testInvalidParseFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"-fn9"});
-		int numberFrameProcessors = controller.getFrameList().size();
+		int numberFrameProcessors = controller.getFrameProcessorList().size();
 		assertEquals(0, numberFrameProcessors);
 		assertNotNull(controller.getErrorMessage());
 		
