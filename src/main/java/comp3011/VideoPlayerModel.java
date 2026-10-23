@@ -290,7 +290,7 @@ public class VideoPlayerModel {
 		}
 
 		try {
-			preparedFrame = framePreparedProducer.readNextVideoFrame();
+			preparedFrame = framePreparedProducer.readNextVideoFrame().poll();
 		} catch (Exception e) {
 			handlePlaybackError(e);
 		}
