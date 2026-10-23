@@ -34,7 +34,7 @@ public class FramePreparedProducer {
 	private String mediaName;
 	private final Runnable finishPlayback;
 	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(8);
+	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(10);
 	private final BiConsumer<Long, Frame> queueAudio;
 	private final Thread producerThread;
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
@@ -87,8 +87,8 @@ public class FramePreparedProducer {
 			processor.process(frame, info);
 		}
 	}
-	private void produceFrames() {
-        int windowSize = 8;
+	private synchronized void produceFrames() {
+        int windowSize = 10;
         Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(windowSize);
 
         try {
@@ -171,7 +171,14 @@ public class FramePreparedProducer {
             threadPool.shutdownNow();
         }
     }
-
+	public void shutdown() {
+		if (producerThread != null) {
+			producerThread.interrupt();
+		}
+		if (threadPool != null ) {
+			threadPool.shutdownNow();
+		}
+	}
     public BlockingQueue<PreparedFrame> readNextVideoFrame() {
         return frameQueue;
     }
