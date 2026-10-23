@@ -475,6 +475,10 @@ public class VideoPlayerModel {
 	private void closePlaybackResources() {
 		playbackTimer.stop();
 		playbackOpen = false;
+		if (framePreparedProducer != null) {
+			framePreparedProducer.shutdown();
+			framePreparedProducer = null;
+		}
 		preparedFrame = null;
 		pendingAudio.clear();
 		clock.setFirstTimestampUs(ClockManagement.NO_SEEK_REQUEST);
