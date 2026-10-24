@@ -58,7 +58,9 @@ public class FramePreparedProducer {
 	    
 	   
 	}
-	
+	public void clearQueue() {
+        frameQueue.clear();
+    }
 	private Frame grabFrame() throws Exception {
 		if (audioAvailable) {
 			return grabber.grab();

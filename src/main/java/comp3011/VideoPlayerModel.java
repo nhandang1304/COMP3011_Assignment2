@@ -544,25 +544,25 @@ public class VideoPlayerModel {
 		return Math.max(0, durationUs - frameDurationUs);
 	}
 
-	private void processFrame(Frame frame, InfoFrame info) throws Exception {
-		for (FrameProcessor processor : frameProcessors) {
-			
-			processor.process(frame, info);
-		}
-	}
-
-	private void initialiseFrameProcessors(InfoVideo videoInfo) throws Exception {
-		for (FrameProcessor processor : frameProcessors) {
-			processor.initialise(videoInfo);
-		}
-	}
-
-	private Frame grabFrame() throws Exception {
-		if (audioAvailable) {
-			return grabber.grab();
-		}
-		return grabber.grabImage();
-	}
+//	private void processFrame(Frame frame, InfoFrame info) throws Exception {
+//		for (FrameProcessor processor : frameProcessors) {
+//			
+//			processor.process(frame, info);
+//		}
+//	}
+//
+//	private void initialiseFrameProcessors(InfoVideo videoInfo) throws Exception {
+//		for (FrameProcessor processor : frameProcessors) {
+//			processor.initialise(videoInfo);
+//		}
+//	}
+//
+//	private Frame grabFrame() throws Exception {
+//		if (audioAvailable) {
+//			return grabber.grab();
+//		}
+//		return grabber.grabImage();
+//	}
 
 	private void flushAudioOutput() {
 		if (audioPlayer != null) {
