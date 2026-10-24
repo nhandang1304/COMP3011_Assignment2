@@ -1,67 +1,67 @@
 package comp3011;
-
+import java.util.concurrent.atomic.AtomicLong;
 public class ClockManagement {
 	static final long NO_SEEK_REQUEST = -1;
-	private long firstTimestampUs;
-	private long logicalPlaybackBaseUs;
-	private long currentTimestampUs;
-	private long playbackStartNs;
-	private long pauseStartedNs;
-	private long relativeSeekBaseUs;
-	ClockManagement(){
-		this.firstTimestampUs = NO_SEEK_REQUEST;
-		this.relativeSeekBaseUs = NO_SEEK_REQUEST;
-	}
+	private final AtomicLong firstTimestampUs = new AtomicLong(NO_SEEK_REQUEST);
+	private final AtomicLong logicalPlaybackBaseUs = new AtomicLong(0);
+	private final AtomicLong currentTimestampUs = new AtomicLong(0);
+	private final AtomicLong playbackStartNs = new AtomicLong(0);
+	private final AtomicLong pauseStartedNs = new AtomicLong(0);
+	private final AtomicLong relativeSeekBaseUs = new AtomicLong(NO_SEEK_REQUEST);
 	
 	public void resumePlaybackClock(long now) {
-		if (pauseStartedNs > 0 && playbackStartNs > 0) {
-			playbackStartNs += now - pauseStartedNs;
+		
+		long pauseStarted = pauseStartedNs.get();
+		long playbackStart = playbackStartNs.get();
+
+		if (pauseStarted > 0 && playbackStart > 0) {
+			playbackStartNs.addAndGet(now - pauseStarted);
 		}
-		pauseStartedNs = 0;
+		pauseStartedNs.set(0L);
 	}
 	public void resetPlaybackClock(boolean pauseRequested, long logicalTimestampUs, long noSeekRequest) {
-		currentTimestampUs = logicalTimestampUs;
-		relativeSeekBaseUs = logicalTimestampUs;
-		firstTimestampUs = noSeekRequest;
-		logicalPlaybackBaseUs = logicalTimestampUs;
-		playbackStartNs = 0;
-		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
+		currentTimestampUs.set(logicalTimestampUs);
+		relativeSeekBaseUs.set(logicalTimestampUs);
+		firstTimestampUs.set(noSeekRequest);
+		logicalPlaybackBaseUs.set(logicalTimestampUs);
+		playbackStartNs.set(0L);
+		pauseStartedNs.set(pauseRequested ? System.nanoTime() : 0L);
 	}
 	public void setFirstTimestampUs(long timestamp) {
-		firstTimestampUs = timestamp;
+		firstTimestampUs.set(timestamp);
 	}
 	public void setLogicalPlaybackBaseUs(long timestamp) {
-		logicalPlaybackBaseUs = timestamp;
+		logicalPlaybackBaseUs.set(timestamp);
 	}
 	public void setCurrentTimestampUs(long timestamp) {
-		currentTimestampUs = timestamp;
+		currentTimestampUs.set(timestamp);
 	}
 	public void setPlaybackStartNs(long timestamp) {
-		playbackStartNs = timestamp;
+		playbackStartNs.set(timestamp);
 	}
 	public void setPauseStartedNs(long timestamp) {
-		pauseStartedNs = timestamp;
+		pauseStartedNs.set(timestamp);
 	}
 	public void setRelativeSeekBaseUs(long timestamp) {
-		relativeSeekBaseUs = timestamp;
+		relativeSeekBaseUs.set(timestamp);
 	}
 	
 	public long getFirstTimestampUs() {
-		return firstTimestampUs;
+		return firstTimestampUs.get();
 	}
 	public long getLogicalPlaybackBaseUs() {
-		return logicalPlaybackBaseUs;
+		return logicalPlaybackBaseUs.get();
 	}
 	public long getCurrentTimestampUs() {
-		return currentTimestampUs;
+		return currentTimestampUs.get();
 	}
 	public long getPlaybackStartNs() {
-		return playbackStartNs;
+		return playbackStartNs.get();
 	}
 	public long getPauseStartedNs() {
-		return pauseStartedNs;
+		return pauseStartedNs.get();
 	}
 	public long getRelativeSeekBaseUs() {
-		return relativeSeekBaseUs;
+		return relativeSeekBaseUs.get();
 	}
 }

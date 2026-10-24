@@ -21,6 +21,7 @@ import org.bytedeco.javacv.JavaFXFrameConverter;
 import javafx.scene.image.Image;
 
 public class FramePreparedProducer {
+
 	private PreparedFrame preparedFrame;
 	private boolean frameProcessorsInitialised;
 	private JavaFXFrameConverter converter;
@@ -34,9 +35,10 @@ public class FramePreparedProducer {
 	private String mediaName;
 	private final Runnable finishPlayback;
 	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(10);
+	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(8);
 	private final BiConsumer<Long, Frame> queueAudio;
 	private final Thread producerThread;
+	private final Object lock = new Object();
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
 								ClockManagement clock, List<FrameProcessor> frameProcessors, BooleanSupplier pauseRequested, boolean audioAvailable, 
 								BooleanSupplier playbackOpen, Runnable finishPlayback, BiConsumer<Long, Frame> queueAudio){
@@ -58,9 +60,7 @@ public class FramePreparedProducer {
 	    
 	   
 	}
-	public void clearQueue() {
-        frameQueue.clear();
-    }
+
 	private Frame grabFrame() throws Exception {
 		if (audioAvailable) {
 			return grabber.grab();
@@ -89,9 +89,10 @@ public class FramePreparedProducer {
 			processor.process(frame, info);
 		}
 	}
-	private synchronized void produceFrames() {
-        int windowSize = 10;
-        Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(windowSize);
+	private void produceFrames() {
+		int windowSize = 8;
+		Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(windowSize);
+        
 
         try {
             while (playbackOpen.getAsBoolean()) {
