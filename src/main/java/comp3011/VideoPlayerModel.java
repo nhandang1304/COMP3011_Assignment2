@@ -150,6 +150,10 @@ public class VideoPlayerModel {
 			flushAudioOutput();
 		} else {
 			clock.resumePlaybackClock(System.nanoTime());
+			if (framePreparedProducer != null) {
+				framePreparedProducer.clearQueue();
+			}
+			preparedFrame = null;
 		}
 
 		notifyPlaybackStateChanged();
