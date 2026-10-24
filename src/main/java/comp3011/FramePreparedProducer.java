@@ -185,4 +185,7 @@ public class FramePreparedProducer {
     public BlockingQueue<PreparedFrame> readNextVideoFrame() {
         return frameQueue;
     }
+    public void flush() {
+        frameQueue.clear();
+    }
 }

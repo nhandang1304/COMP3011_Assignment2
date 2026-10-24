@@ -201,6 +201,9 @@ public class VideoPlayerModel {
 		try {
 			grabber.setTimestamp(grabTimestampUs);
 			resetPlaybackClock(logicalTimestampUs);
+			if (framePreparedProducer != null) {
+				framePreparedProducer.flush();
+			}
 			flushAudioOutput();
 			prepareNextFrame();
 			notifyPlaybackStateChanged();
