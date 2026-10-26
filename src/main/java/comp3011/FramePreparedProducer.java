@@ -127,7 +127,16 @@ public class FramePreparedProducer {
 			synchronized (deliveryLock) {
 				frameQueue.clear();
 			}
-			
+			synchronized (windowLock) {
+				for (Pending p : slidingWindow) {
+					p.future().cancel(true);
+				}
+				slidingWindow.clear();
+			}
+			endOfStream = false;
+			drained = false;
+			framePermits.set(showFrameWhilePaused ? 1 : 0);
+			resetState.run();
 		} finally {
 			grabLock.unlock();
 		}
