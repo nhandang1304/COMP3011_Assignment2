@@ -45,7 +45,7 @@ public class FramePreparedProducer {
 		t.setDaemon(true);
 		return t;});
 	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(MAX_PENDING_FRAMES);
-	private final Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(MAX_PENDING_FRAMES);
+	private final Deque<Future<Pending>> slidingWindow = new ArrayDeque<>(MAX_PENDING_FRAMES);
 	private final BiConsumer<Long, Frame> queueAudio;
 	private final Consumer<Exception> errorHandler;
 	
@@ -205,33 +205,14 @@ public class FramePreparedProducer {
                     System.nanoTime()
             );
         });
-
-        slidingWindow.addLast(future);
-    }
-
-	}
-	Future<PreparedFrame> oldestFuture = null;
-                synchronized (this) {
-                    if (!slidingWindow.isEmpty() && playbackOpen.getAsBoolean()) {
-                        oldestFuture = slidingWindow.pollFirst();
-                    }
-                }
-
-                if (oldestFuture != null) {
-                    PreparedFrame prepared = oldestFuture.get();
-                    if (prepared != null) {
-                        frameQueue.put(prepared);
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            
-            Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            threadPool.shutdownNow();
+			synchronized (windowLock) {
+				slidingWindow.addLast(new Pending(gen, future));
+			}
+			framePermits.updateAndGet(p -> Math.max(0, p - 1));}
+        finally {
+        	grabLock.unlock();
         }
+        
     }
 	public void shutdown() {
 		if (producerThread != null) {
