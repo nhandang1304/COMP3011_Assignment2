@@ -77,7 +77,7 @@ public class FramePreparedProducer {
 	    this.queueAudio = queueAudio;
 		this.errorHandler = errorHandler;
 	    
-	    this.producerThread = new Thread(this::produceFrames, "Video-Producer-Thread");
+	    this.producerThread = new Thread(this::produceFrames, "Video Producer-Thread");
         this.producerThread.setDaemon(true);
         
         
@@ -115,17 +115,24 @@ public class FramePreparedProducer {
 			grabLock.unlock();
 		}
 	}
-//	private void prepareNextFrame() {
-//		if (!playbackOpen.getAsBoolean() || preparedFrame != null) {
-//			return;
-//		}
-//
-//		try {
-//			preparedFrame = readNextVideoFrame();
-//		} catch (Exception e) {
-//			handlePlaybackError(e);
-//		}
-//	}
+	public void allowFrameWhilePaused() {
+		framePermits.set(1);
+	}
+	
+	public void seek(long grabTimestampUs, boolean showFrameWhilePaused, Runnable resetState) throws Exception {
+		processingVersion.incrementAndGet(); 
+		grabLock.lock();
+		try {
+			grabber.setTimestamp(grabTimestampUs);
+			synchronized (deliveryLock) {
+				frameQueue.clear();
+			}
+			
+		} finally {
+			grabLock.unlock();
+		}
+	}
+	
 	private void initialiseFrameProcessors(InfoVideo videoInfo) throws Exception {
 		for (FrameProcessor processor : frameProcessors) {
 			processor.initialise(videoInfo);
@@ -137,7 +144,39 @@ public class FramePreparedProducer {
 			processor.process(frame, info);
 		}
 	}
+	private void produceFrames() {
+		try {
+			while (playbackOpen.getAsBoolean()) {
+				
+				if (deliverHead(false)) {
+					continue;
+				}
+				boolean paused = pauseRequested.getAsBoolean() && framePermits.get() == 0;
+				if (!paused && !endOfStream && windowSize() < MAX_PENDING_FRAMES) {
+					grabAndSubmitFrames();
+					continue;
+				}
+
+				if (windowSize() > 0) {
+					deliverHead(true);
+					continue;
+				}
 	
+				if (endOfStream) {
+					markDrainedIfStillAtEnd();
+				}
+				Thread.sleep(5);
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		} catch (Exception e) {
+			if (playbackOpen.getAsBoolean()) {
+				errorHandler.accept(e);
+			}
+		} finally {
+			threadPool.shutdownNow();
+		}
+	}
 	private void grabAndSubmitFrames() throws Exception {
 
         try {
