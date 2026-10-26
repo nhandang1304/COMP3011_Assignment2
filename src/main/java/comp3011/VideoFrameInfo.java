@@ -8,7 +8,7 @@ public record VideoFrameInfo (int videoFrameDurationUs, double frameRate, int in
 	public static VideoFrameInfo of(int totalVideoFrames, double frameRate) {
         int intFrameRate = (int) Math.round(frameRate);
         int durationUs = frameRate > 0 ? (int) Math.round(1_000_000.0 / frameRate) : 0;
-        return new VideoFrameInfo(totalVideoFrames, frameRate, intFrameRate, durationUs);
+        return new VideoFrameInfo(durationUs, frameRate, intFrameRate, totalVideoFrames);
     }
 	}	
 	

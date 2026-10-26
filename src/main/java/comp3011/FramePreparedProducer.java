@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
@@ -21,7 +22,10 @@ import org.bytedeco.javacv.JavaFXFrameConverter;
 import javafx.scene.image.Image;
 
 public class FramePreparedProducer {
-
+	private static final int WINDOW_SIZE = 8;
+	 
+	private record Pending(int generation, Future<PreparedFrame> future) {
+	}
 	private PreparedFrame preparedFrame;
 	private boolean frameProcessorsInitialised;
 	private JavaFXFrameConverter converter;
@@ -34,11 +38,15 @@ public class FramePreparedProducer {
 	private BooleanSupplier playbackOpen;
 	private String mediaName;
 	private final Runnable finishPlayback;
-	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(8);
+	private ExecutorService threadPool = Executors.newFixedThreadPool( Runtime.getRuntime().availableProcessors(), runnable -> {
+		Thread t = new Thread(runnable, "Worker of Frame");
+		t.setDaemon(true);
+		return t;});
+	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(WINDOW_SIZE);
+	private final Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(8);
 	private final BiConsumer<Long, Frame> queueAudio;
+	private final Consumer<Exception> errorHandler;
 	private final Thread producerThread;
-	private final Object lock = new Object();
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
 								ClockManagement clock, List<FrameProcessor> frameProcessors, BooleanSupplier pauseRequested, boolean audioAvailable, 
 								BooleanSupplier playbackOpen, Runnable finishPlayback, BiConsumer<Long, Frame> queueAudio){
@@ -89,16 +97,19 @@ public class FramePreparedProducer {
 			processor.process(frame, info);
 		}
 	}
+	
 	private void produceFrames() {
-		int windowSize = 8;
-		Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(windowSize);
-        
+		
+		
+        int windowSize = 8;
 
         try {
             while (playbackOpen.getAsBoolean()) {
-                
+            	
+            	synchronized (this) {
                 while (slidingWindow.size() < windowSize && playbackOpen.getAsBoolean()) {
-                    Frame frame = grabFrame();
+                	
+                	Frame frame = grabFrame();
                     if (frame == null) {
                         finishPlayback.run();
                         break;
@@ -113,7 +124,7 @@ public class FramePreparedProducer {
                         continue;
                     }
 
-                    synchronized (this) {
+                    
                         if (!frameProcessorsInitialised) {
                             initialiseFrameProcessors(new InfoVideo(
                                     mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
@@ -131,7 +142,7 @@ public class FramePreparedProducer {
                                 clock.setPauseStartedNs(clock.getPlaybackStartNs());
                             }
                         }
-                    }
+                    
 
                     long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
                     Frame clonedFrame = frame.clone(); 
@@ -157,17 +168,24 @@ public class FramePreparedProducer {
                     slidingWindow.addLast(future);
                 }
 
-               
-                if (!slidingWindow.isEmpty() && playbackOpen.getAsBoolean()) {
-                    Future<PreparedFrame> oldestFuture = slidingWindow.pollFirst();
-                    if (oldestFuture != null) {
-                        PreparedFrame prepared = oldestFuture.get();
-                        if (prepared != null) {
-                            frameQueue.put(prepared);
-                        }
+            	}
+            	Future<PreparedFrame> oldestFuture = null;
+                synchronized (this) {
+                    if (!slidingWindow.isEmpty() && playbackOpen.getAsBoolean()) {
+                        oldestFuture = slidingWindow.pollFirst();
+                    }
+                }
+
+                if (oldestFuture != null) {
+                    PreparedFrame prepared = oldestFuture.get();
+                    if (prepared != null) {
+                        frameQueue.put(prepared);
                     }
                 }
             }
+        } catch (InterruptedException e) {
+            
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -187,5 +205,9 @@ public class FramePreparedProducer {
     }
     public void flush() {
         frameQueue.clear();
+        for (Future<PreparedFrame> future : slidingWindow) {
+            future.cancel(true); 
+        }
+        slidingWindow.clear();
     }
 }
