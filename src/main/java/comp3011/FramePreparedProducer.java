@@ -104,11 +104,14 @@ public class FramePreparedProducer {
 		}
 	}
 	private void markDrainedIfStillAtEnd() {
-	
-			if (endOfStream && windowSize() == 0) {
+		grabLock.lock();
+		try {	
+		if (endOfStream && windowSize() == 0) {
 				drained = true;
 			}
-		
+		} finally{
+			grabLock.unlock();
+		}
 	}
 //	private void prepareNextFrame() {
 //		if (!playbackOpen.getAsBoolean() || preparedFrame != null) {
@@ -134,77 +137,80 @@ public class FramePreparedProducer {
 	}
 	
 	private void produceFrames() {
-		
-		
-        int windowSize = 8;
 
         try {
-            while (playbackOpen.getAsBoolean()) {
-            	
-            	synchronized (this) {
-                while (slidingWindow.size() < windowSize && playbackOpen.getAsBoolean()) {
-                	
-                	Frame frame = grabFrame();
-                    if (frame == null) {
-                        finishPlayback.run();
-                        break;
-                    }
-                    long timestampUs = grabber.getTimestamp();
-                    int frameNumber = grabber.getFrameNumber();
+        	if (!playbackOpen.getAsBoolean() || endOfStream) {
+				return;
+			}
+			if (pauseRequested.getAsBoolean() && framePermits.get() == 0) {
+				return;
+			}
+			Frame frame = grabFrame();
+            if (frame == null) {
+            	endOfStream = true;
+            	return;
+             
+            }
+	
+            long timestampUs = grabber.getTimestamp();
+            int frameNumber = grabber.getFrameNumber();
 
-                    if (audioAvailable && frame.samples != null) {
-                        queueAudio.accept(timestampUs, frame);
-                    }
-                    if (frame.image == null|| frame.imageWidth <= 0 || frame.imageHeight <= 0) {
-                        continue;
-                    }
+            if (audioAvailable && frame.samples != null) {
+                queueAudio.accept(timestampUs, frame);
+            }
+            if (frame.image == null|| frame.imageWidth <= 0 || frame.imageHeight <= 0) {
+                return;
+            }
 
                     
-                        if (!frameProcessorsInitialised) {
-                            initialiseFrameProcessors(new InfoVideo(
-                                    mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
-                                    frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, 
-                                    videoFrameInfo.frameRate(), videoFrameInfo.intFrameRate(), 
-                                    videoFrameInfo.videoFrameDurationUs(), grabber.getPixelFormat()
-                            ));
-                            frameProcessorsInitialised = true;
-                        }
+            if (!frameProcessorsInitialised) {
+                initialiseFrameProcessors(new InfoVideo(
+                        mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
+                        frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, 
+                        videoFrameInfo.frameRate(), videoFrameInfo.intFrameRate(), 
+                        videoFrameInfo.videoFrameDurationUs(), grabber.getPixelFormat()
+                ));
+                frameProcessorsInitialised = true;
+            }
 
-                        if (clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST) {
-                            clock.setFirstTimestampUs(timestampUs);
-                            clock.setPlaybackStartNs(System.nanoTime());
-                            if (pauseRequested.getAsBoolean()) {
-                                clock.setPauseStartedNs(clock.getPlaybackStartNs());
-                            }
-                        }
-                    
-
-                    long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
-                    Frame clonedFrame = frame.clone(); 
-
-                    Future<PreparedFrame> future = threadPool.submit(() -> {
-                        InfoFrame info = new InfoFrame(frameNumber, timestampUs);
-                        processFrame(clonedFrame, info);
-
-                        Image image = converter.convert(clonedFrame);
-                        long logicalTimestampUs = clock.getLogicalPlaybackBaseUs() + relativeTimestampUs;
-                        long targetTimeNs = clock.getPlaybackStartNs() + (relativeTimestampUs * 1000L);
-
-                        return new PreparedFrame(
-                                image, 
-                                frameNumber, 
-                                timestampUs, 
-                                logicalTimestampUs, 
-                                targetTimeNs, 
-                                System.nanoTime()
-                        );
-                    });
-
-                    slidingWindow.addLast(future);
+            if (clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST) {
+                clock.setFirstTimestampUs(timestampUs);
+                clock.setPlaybackStartNs(System.nanoTime());
+                if (pauseRequested.getAsBoolean()) {
+                    clock.setPauseStartedNs(clock.getPlaybackStartNs());
                 }
+            }
+        
 
-            	}
-            	Future<PreparedFrame> oldestFuture = null;
+            long relativeUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
+			long logicalUs = clock.getLogicalPlaybackBaseUs() + relativeUs;
+			Frame clonedFrame = frame.clone();
+			int gen = processingVersion.get();
+
+			Future<PreparedFrame> future = threadPool.submit(() -> {
+            InfoFrame info = new InfoFrame(frameNumber, timestampUs);
+            processFrame(clonedFrame, info);
+
+            Image image;
+            synchronized(converter) {
+            	image = converter.convert(clonedFrame);
+            }
+           
+            return new PreparedFrame(
+                    image, 
+                    frameNumber, 
+                    timestampUs, 
+                    logicalUs, 
+                    relativeUs, 
+                    System.nanoTime()
+            );
+        });
+
+        slidingWindow.addLast(future);
+    }
+
+	}
+	Future<PreparedFrame> oldestFuture = null;
                 synchronized (this) {
                     if (!slidingWindow.isEmpty() && playbackOpen.getAsBoolean()) {
                         oldestFuture = slidingWindow.pollFirst();
