@@ -135,7 +135,11 @@ public class FramePreparedProducer {
 			}
 			endOfStream = false;
 			drained = false;
-			framePermits.set(showFrameWhilePaused ? 1 : 0);
+			if (showFrameWhilePaused) {
+			    framePermits.set(1);
+			} else {
+			    framePermits.set(0);
+			}
 			resetState.run();
 		} finally {
 			grabLock.unlock();
@@ -187,7 +191,7 @@ public class FramePreparedProducer {
 		}
 	}
 	private void grabAndSubmitFrames() throws Exception {
-
+		grabLock.lock();
         try {
         	if (!playbackOpen.getAsBoolean() || endOfStream) {
 				return;
@@ -316,11 +320,11 @@ public class FramePreparedProducer {
 		return true;
 	}
 	
-    public void flush() {
-        frameQueue.clear();
-        for (Future<PreparedFrame> future : slidingWindow) {
-            future.cancel(true); 
-        }
-        slidingWindow.clear();
-    }
+//    public void flush() {
+//        frameQueue.clear();
+//        for (Future<PreparedFrame> future : slidingWindow) {
+//            future.cancel(true); 
+//        }
+//        slidingWindow.clear();
+//    }
 }
