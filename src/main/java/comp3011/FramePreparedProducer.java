@@ -7,6 +7,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -235,7 +237,38 @@ public class FramePreparedProducer {
 			Thread.sleep(2); 
 		}
 	}
-}
+	private boolean deliverHead(boolean wait) throws Exception {
+		Pending head;
+		synchronized (windowLock) {
+			head = slidingWindow.peekFirst();
+			if (head == null || (!wait && !head.future().isDone())) {
+				return false;
+			}
+			slidingWindow.pollFirst();
+		}
+ 
+		PreparedFrame prepared;
+		try {
+			prepared = head.future().get();
+		} catch (CancellationException e) {
+			return true; 
+		} catch (ExecutionException e) {
+			if (head.generation() != processingVersion.get()) {
+				return true; 
+			}
+			if (e.getCause() instanceof Exception) {
+			    throw (Exception) e.getCause();
+			} else {
+			    throw e;
+			}
+		}
+ 
+		if (prepared != null) {
+			offerFrame(head.generation(), prepared);
+		}
+		return true;
+	}
+	
     public void flush() {
         frameQueue.clear();
         for (Future<PreparedFrame> future : slidingWindow) {
