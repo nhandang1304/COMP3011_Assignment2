@@ -45,7 +45,7 @@ public class FramePreparedProducer {
 		t.setDaemon(true);
 		return t;});
 	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(MAX_PENDING_FRAMES);
-	private final Deque<Future<Pending>> slidingWindow = new ArrayDeque<>(MAX_PENDING_FRAMES);
+	private final Deque<Pending> slidingWindow = new ArrayDeque<>(MAX_PENDING_FRAMES);
 	private final BiConsumer<Long, Frame> queueAudio;
 	private final Consumer<Exception> errorHandler;
 	
@@ -222,9 +222,20 @@ public class FramePreparedProducer {
 			threadPool.shutdownNow();
 		}
 	}
-    public BlockingQueue<PreparedFrame> readNextVideoFrame() {
-        return frameQueue;
-    }
+	private void offerFrame(int frameGeneration, PreparedFrame frame) throws InterruptedException {
+		while (playbackOpen.getAsBoolean()) {
+			synchronized (deliveryLock) {
+				if (frameGeneration != processingVersion.get()) {
+					return; 
+				}
+				if (frameQueue.offer(frame)) {
+					return;
+				}
+			}
+			Thread.sleep(2); 
+		}
+	}
+}
     public void flush() {
         frameQueue.clear();
         for (Future<PreparedFrame> future : slidingWindow) {
