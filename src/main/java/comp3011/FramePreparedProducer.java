@@ -97,6 +97,19 @@ public class FramePreparedProducer {
 		}
 		return grabber.grabImage();
 	}
+	
+	private int windowSize() {
+		synchronized (windowLock) {
+			return slidingWindow.size();
+		}
+	}
+	private void markDrainedIfStillAtEnd() {
+	
+			if (endOfStream && windowSize() == 0) {
+				drained = true;
+			}
+		
+	}
 //	private void prepareNextFrame() {
 //		if (!playbackOpen.getAsBoolean() || preparedFrame != null) {
 //			return;
