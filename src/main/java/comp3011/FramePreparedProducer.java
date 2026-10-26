@@ -138,7 +138,7 @@ public class FramePreparedProducer {
 		}
 	}
 	
-	private void produceFrames() {
+	private void grabAndSubmitFrames() throws Exception {
 
         try {
         	if (!playbackOpen.getAsBoolean() || endOfStream) {
@@ -166,12 +166,11 @@ public class FramePreparedProducer {
 
                     
             if (!frameProcessorsInitialised) {
-                initialiseFrameProcessors(new InfoVideo(
-                        mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
-                        frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, 
-                        videoFrameInfo.frameRate(), videoFrameInfo.intFrameRate(), 
-                        videoFrameInfo.videoFrameDurationUs(), grabber.getPixelFormat()
-                ));
+            	InfoVideo videoInfo = new InfoVideo(mediaName, videoFrameInfo.totalVideoFrames(), frame.imageWidth,
+						frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride,
+						videoFrameInfo.frameRate(), videoFrameInfo.intFrameRate(),
+						videoFrameInfo.videoFrameDurationUs(), grabber.getPixelFormat());
+            	initialiseFrameProcessors(videoInfo);
                 frameProcessorsInitialised = true;
             }
 
