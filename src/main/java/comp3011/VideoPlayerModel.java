@@ -11,10 +11,10 @@
 package comp3011;
 
 import java.io.File;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -44,7 +44,7 @@ public class VideoPlayerModel {
 	private static final long AUDIO_LEAD_NS = 30_000_000L;
 
 	private final List<FrameProcessor> frameProcessors;
-	private final Queue<PendingAudio> pendingAudio = new ConcurrentLinkedQueue<>(); // producer thread adds, UI thread consumes
+	private final Queue<PendingAudio> pendingAudio = new ArrayDeque<>();
 	private final BiConsumer<Integer, Integer> videoSizeChangedHandler;
 	private final Consumer<Image> frameReadyHandler;
 	private final Consumer<String> statusChangedHandler;
@@ -72,10 +72,10 @@ public class VideoPlayerModel {
 	private JavaFXFrameConverter converter; // Takes Frame objects to JavaFX Image objects, which can be put on screen.
 	private AudioPlayer audioPlayer; // This is ours. It has some real time buffering smarts.
 	private PreparedFrame preparedFrame; // Ours, but is just an Image with some meta-data added.
-	private volatile boolean playbackOpen; // True when playback is happening. Read by the producer thread.
-	private volatile boolean pauseRequested; // Read by the producer thread.
-	private volatile boolean audioOutputEnabled; // Read by the producer thread.
-	private boolean showFrameWhilePaused; // UI thread only: show one preview frame after a seek while paused.
+	private boolean prepareNextFrameQueued; // True only when the event loop needs to call our prepareNextFrame method.
+	private boolean playbackOpen; // True when playback is happening.
+	private boolean pauseRequested;
+	private boolean audioOutputEnabled;
 	private boolean audioAvailable;
 	private boolean frameProcessorsInitialised;
 //	private long currentTimestampUs;
@@ -153,8 +153,8 @@ public class VideoPlayerModel {
 			flushAudioOutput();
 		} else {
 			System.out.println("Resume");
-			showFrameWhilePaused = false;
 			clock.resumePlaybackClock(System.nanoTime());
+			//prepareNextFrame();
 		}
 
 		notifyPlaybackStateChanged();
@@ -203,11 +203,13 @@ public class VideoPlayerModel {
 		}
 
 		try {
-			showFrameWhilePaused = pauseRequested;
-			// The producer owns the grabber. It seeks under its lock and runs the clock reset
-			// while it is locked out, so no old frame or audio can sneak in afterwards.
-			framePreparedProducer.seek(grabTimestampUs, pauseRequested, () -> resetPlaybackClock(logicalTimestampUs));
+			grabber.setTimestamp(grabTimestampUs);
+			resetPlaybackClock(logicalTimestampUs);
+			if (framePreparedProducer != null) {
+				framePreparedProducer.flush();
+			}
 			flushAudioOutput();
+			prepareNextFrame();
 			notifyPlaybackStateChanged();
 		} catch (Exception e) {
 			handlePlaybackError(e);
@@ -235,15 +237,9 @@ public class VideoPlayerModel {
 			
 			resetPlaybackClock(clock.getCurrentTimestampUs());
 			playbackOpen = true;
-			framePreparedProducer = new FramePreparedProducer(mediaName(videoFile), converter, grabber, videoFrameInfo,
-					clock, frameProcessors, () -> pauseRequested, audioAvailable, () -> playbackOpen, this::queueAudio,
-					this::onProducerError);
-			showFrameWhilePaused = pauseRequested;
-			if (pauseRequested) {
-				framePreparedProducer.allowFrameWhilePaused();
-			}
-			framePreparedProducer.start();
+			framePreparedProducer = new FramePreparedProducer(mediaName(videoFile), converter, grabber, videoFrameInfo, clock, frameProcessors,() -> pauseRequested, audioAvailable, () -> playbackOpen, this::finishPlayback, this::queueAudio);
 			playbackTimer.start();
+			prepareNextFrame();
 			notifyPlaybackStateChanged();
 		} catch (Exception e) {
 			handlePlaybackError(e);
@@ -296,6 +292,18 @@ public class VideoPlayerModel {
 //		}
 //		pauseStartedNs = 0;
 //	}
+
+	private void prepareNextFrame() {
+		if (!playbackOpen || preparedFrame != null) {
+			return;
+		}
+
+		try {
+			preparedFrame = framePreparedProducer.readNextVideoFrame().poll();
+		} catch (Exception e) {
+			handlePlaybackError(e);
+		}
+	}
 
 //	private PreparedFrame readNextVideoFrame() throws Exception {
 //		while (playbackOpen) {
@@ -361,49 +369,45 @@ public class VideoPlayerModel {
 			return;
 		}
 
-		// Task (1) keep audio flowing (does nothing while paused).
+		// Task (1)
 		writeDueAudio(now);
 
-		// While paused we hold whatever frame we have, except one preview frame after a seek.
-		boolean mayShow = !pauseRequested || showFrameWhilePaused;
-		if (!mayShow) {
-			return;
+		// Task (2)
+		if (preparedFrame != null && preparedFrame.targetTimeNs() <= now) {
+			// We have a prepared frame ready to go and it is due (or just past due!) so get
+			// it up on screen ASAP!
+			displayPreparedFrame(now);
 		}
 
-		// Task (2) fetch the next finished frame from the producer thread (never blocks).
-		if (preparedFrame == null) {
-			preparedFrame = framePreparedProducer.pollFrame();
+		// Task (3). We'll try and be nice to the GUI event loop here by queueing the
+		// prepareNextFrame call rather than
+		// hogging the thread and doing it here, hence the tricky callback and use of
+		// prepareNextFrameQueued. Feel free
+		// to replace this whole block with simple linear control flow logic
+		// such as: if (!pauseRequested && preparedFrame == null) prepareNextFrame();
+		// to compare.
+		if (!pauseRequested && preparedFrame == null && !prepareNextFrameQueued) {
+			prepareNextFrameQueued = true;
+			Platform.runLater(() -> {
+				prepareNextFrameQueued = false;
+
+				if (!pauseRequested) {
+					prepareNextFrame();
+				}
+			});
 		}
-
-		// Task (3) show it when due. The target time is computed NOW from the live clock, so a
-		// pause/resume shift of playbackStartNs also applies to frames prepared before the pause.
-		if (preparedFrame != null) {
-			if (showFrameWhilePaused || targetTimeNs(preparedFrame) <= now) {
-				displayPreparedFrame(now);
-			}
-		} else if (!pauseRequested && framePreparedProducer.isFinished()) {
-			finishPlayback(); // everything decoded has been shown, so end of video now
-		}
-	}
-
-	private long targetTimeNs(PreparedFrame frame) {
-		return clock.getPlaybackStartNs() + frame.relativeTimestampUs() * 1_000L;
-	}
-
-	private void onProducerError(Exception e) {
-		Platform.runLater(() -> handlePlaybackError(e));
 	}
 
 	private void displayPreparedFrame(long now) {
 		PreparedFrame frame = preparedFrame;
 		preparedFrame = null;
-		showFrameWhilePaused = false;
 		clock.setCurrentTimestampUs(frame.logicalTimestampUs());
 		clock.setRelativeSeekBaseUs(ClockManagement.NO_SEEK_REQUEST);
+		
 		// Dump some logging to the console once per second so that real time
 		// performance can be monitored.
 		if (videoFrameInfo.intFrameRate() > 0 && frame.frameNumber() % videoFrameInfo.intFrameRate() == 0) {
-			long remainingUs = (targetTimeNs(frame) - frame.preparedAtNs()) / 1_000L;
+			long remainingUs = (frame.targetTimeNs() - frame.preparedAtNs()) / 1_000L;
 			if (remainingUs < 0) {
 				System.out.printf("Frame headroom is \u001B[31m%5dus\u001B[0m out of %dus spare.%n", remainingUs,
 						videoFrameInfo.videoFrameDurationUs());
@@ -416,14 +420,12 @@ public class VideoPlayerModel {
 		notifyFrameReady(frame.image());
 	}
 
-	// Runs on the producer thread, inside the producer's grab lock.
 	private void queueAudio(long timestampUs, Frame frame) {
-		AudioPlayer player = audioPlayer;
-		if (!audioOutputEnabled || player == null) {
+		if (!audioOutputEnabled || audioPlayer == null) {
 			return;
 		}
 
-		byte[] samples = player.copySamples(frame);
+		byte[] samples = audioPlayer.copySamples(frame);
 		if (samples.length > 0) {
 			pendingAudio.add(new PendingAudio(timestampUs, samples));
 		}
@@ -461,8 +463,8 @@ public class VideoPlayerModel {
 	}
 
 	private void finishPlayback() {
-		long endTimestampUs = videoDurationUs != ClockManagement.NO_SEEK_REQUEST ? videoDurationUs
-				: clock.getCurrentTimestampUs();
+		Platform.runLater(() -> {
+		long endTimestampUs = videoDurationUs != ClockManagement.NO_SEEK_REQUEST ? videoDurationUs : clock.getCurrentTimestampUs();
 
 		closePlaybackResources();
 		pauseRequested = true;
@@ -470,7 +472,7 @@ public class VideoPlayerModel {
 		clock.setRelativeSeekBaseUs(endTimestampUs);
 		notifyStatusChanged("Playback finished");
 		notifyPlaybackStateChanged();
-	}
+	});}
 
 	private void handlePlaybackError(Exception e) {
 		e.printStackTrace();
@@ -483,7 +485,6 @@ public class VideoPlayerModel {
 	private void closePlaybackResources() {
 		playbackTimer.stop();
 		playbackOpen = false;
-		showFrameWhilePaused = false;
 		if (framePreparedProducer != null) {
 			framePreparedProducer.shutdown();
 			framePreparedProducer = null;

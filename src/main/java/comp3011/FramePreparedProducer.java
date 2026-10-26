@@ -10,6 +10,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -22,7 +24,7 @@ import org.bytedeco.javacv.JavaFXFrameConverter;
 import javafx.scene.image.Image;
 
 public class FramePreparedProducer {
-	private static final int WINDOW_SIZE = 8;
+	private static final int MAX_PENDING_FRAMES = 8;
 	 
 	private record Pending(int generation, Future<PreparedFrame> future) {
 	}
@@ -37,19 +39,29 @@ public class FramePreparedProducer {
 	private BooleanSupplier pauseRequested;
 	private BooleanSupplier playbackOpen;
 	private String mediaName;
-	private final Runnable finishPlayback;
+
 	private ExecutorService threadPool = Executors.newFixedThreadPool( Runtime.getRuntime().availableProcessors(), runnable -> {
 		Thread t = new Thread(runnable, "Worker of Frame");
 		t.setDaemon(true);
 		return t;});
-	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(WINDOW_SIZE);
-	private final Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(8);
+	private BlockingQueue<PreparedFrame> frameQueue = new ArrayBlockingQueue<>(MAX_PENDING_FRAMES);
+	private final Deque<Future<PreparedFrame>> slidingWindow = new ArrayDeque<>(MAX_PENDING_FRAMES);
 	private final BiConsumer<Long, Frame> queueAudio;
 	private final Consumer<Exception> errorHandler;
+	
+	private final Object windowLock = new Object();
+	private final Object deliveryLock = new Object();
+	private final ReentrantLock grabLock = new ReentrantLock();
+	private final AtomicInteger processingVersion = new AtomicInteger();
+	private final AtomicInteger framePermits = new AtomicInteger();
+	
 	private final Thread producerThread;
+	private volatile boolean endOfStream; 
+	private volatile boolean drained; 
+	
 	public FramePreparedProducer(String mediaName, JavaFXFrameConverter converter, FFmpegFrameGrabber grabber,  VideoFrameInfo videoFrameInfo, 
 								ClockManagement clock, List<FrameProcessor> frameProcessors, BooleanSupplier pauseRequested, boolean audioAvailable, 
-								BooleanSupplier playbackOpen, Runnable finishPlayback, BiConsumer<Long, Frame> queueAudio){
+								BooleanSupplier playbackOpen, BiConsumer<Long, Frame> queueAudio, Consumer<Exception> errorHandler){
 		this.converter = converter;
 		this.grabber = grabber;
 		this.clock = clock;
@@ -59,16 +71,26 @@ public class FramePreparedProducer {
 		this.pauseRequested = pauseRequested;
 		this.playbackOpen = playbackOpen;
 		this.mediaName = mediaName;
-		this.finishPlayback = finishPlayback;
+
 	    this.queueAudio = queueAudio;
+		this.errorHandler = errorHandler;
 	    
 	    this.producerThread = new Thread(this::produceFrames, "Video-Producer-Thread");
         this.producerThread.setDaemon(true);
-        this.producerThread.start();
-	    
+        
+        
 	   
 	}
-
+	
+	public void start() {
+		producerThread.start();
+	}
+	public PreparedFrame pollFrame() {
+		return frameQueue.poll();
+	}
+	public boolean isFinished() {
+		return drained && frameQueue.isEmpty();
+	}
 	private Frame grabFrame() throws Exception {
 		if (audioAvailable) {
 			return grabber.grab();
