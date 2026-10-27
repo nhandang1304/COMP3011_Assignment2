@@ -1,8 +1,12 @@
-package comp3011;
+package comp3011.test;
 
 import java.nio.ByteBuffer;
 
 import org.bytedeco.javacv.Frame;
+
+import comp3011.FrameProcessor;
+import comp3011.InfoFrame;
+import comp3011.InfoVideo;
 
 
 final class TestFrames {
