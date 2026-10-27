@@ -1,4 +1,4 @@
-package comp3011.test;
+package test;
 
 import java.nio.ByteBuffer;
 
@@ -9,10 +9,10 @@ import comp3011.InfoFrame;
 import comp3011.InfoVideo;
 
 
-final class TestFrames {
+final class FrameForTesting {
     static final String MEDIA_NAME = "test video.mp4";
 
-    private TestFrames() {
+    private FrameForTesting() {
     }
 
     static Frame filled(int width, int height, int channels, int value) {

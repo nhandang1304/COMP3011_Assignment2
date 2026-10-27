@@ -1,8 +1,8 @@
-package comp3011.test;
-import static comp3011.test.TestFrames.info;
-import static comp3011.test.TestFrames.initialised;
-import static comp3011.test.TestFrames.patterned;
-import static comp3011.test.TestFrames.snapshot;
+package test;
+import static test.FrameForTesting.info;
+import static test.FrameForTesting.initialised;
+import static test.FrameForTesting.patterned;
+import static test.FrameForTesting.snapshot;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.util.ArrayList;
@@ -36,14 +36,15 @@ For every effect, concurrent output must be byte-identical to
 single-threaded output. A shared scratch buffer (as in FrameBleeder and FrameJitterer) that loses its lock would show up here as corrupted frames. Races are probabilistic, so each effect is hammered several rounds.
 */
 @Timeout(150)
-class ConcurrentEffectsTest {
+class EffectConcurrentTest {
     private static final int W = 96;
     private static final int H = 64;
     private static final int FRAMES = 64;
     private static final int ROUNDS = 5;
     private static final int THREADS = 8;
 
-    private static void assertSafeToShare(Supplier<? extends FrameProcessor> factory) throws Exception {
+   
+    void checkEffectThreadSafety(Supplier<? extends FrameProcessor> factory) throws Exception {
         Frame like = patterned(W, H);
         FrameProcessor shared = initialised(factory.get(), like, FRAMES, 25);
         List<byte[]> reference = new ArrayList<>();
@@ -52,7 +53,6 @@ class ConcurrentEffectsTest {
             shared.process(f, info(n));
             reference.add(snapshot(f));
         }
-
         ExecutorService pool = Executors.newFixedThreadPool(THREADS);
         try {
             for (int round = 0; round < ROUNDS; round++) {
@@ -74,20 +74,5 @@ class ConcurrentEffectsTest {
             pool.shutdownNow();
         }
     }
-
-    @Test 
-    void numbererIsThreadSafe() throws Exception { 
-    	assertSafeToShare(FrameNumberer::new); }
-    @Test
-    void scratcherIsThreadSafe() throws Exception { 
-    	assertSafeToShare(FrameScratcher::new); }
-    @Test void flickererIsThreadSafe() throws Exception { assertSafeToShare(FrameFlickerer::new); }
-    @Test void blackAndWhiterIsThreadSafe() throws Exception { assertSafeToShare(FrameBlackAndWhiter::new); }
-    @Test void yellowerIsThreadSafe() throws Exception { assertSafeToShare(FrameYellower::new); }
-    @Test void vignetterIsThreadSafe() throws Exception { assertSafeToShare(FrameVignetter::new); }
-    @Test void dusterIsThreadSafe() throws Exception { assertSafeToShare(FrameDuster::new); }
-    @Test void peppererIsThreadSafe() throws Exception { assertSafeToShare(FramePepperer::new); }
-    @Test void jittererIsThreadSafe() throws Exception { assertSafeToShare(FrameJitterer::new); }
-    @Test void bleederIsThreadSafe() throws Exception { assertSafeToShare(FrameBleeder::new); }
    
 }
