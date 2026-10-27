@@ -61,7 +61,7 @@ public class FrameBleeder extends FrameProcessor {
     }
 
     @Override
-    public void process(Frame frame, InfoFrame info) throws Exception {
+    public synchronized void process(Frame frame, InfoFrame info) throws Exception {
         if (frame.image == null || frame.image.length == 0 || frame.image[0] == null) {
             return;
         }

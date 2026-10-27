@@ -42,7 +42,7 @@ public class FramePreparedProducer {
 	private BooleanSupplier playbackOpen;
 	private String mediaName;
 
-	private ExecutorService threadPool = Executors.newFixedThreadPool( Runtime.getRuntime().availableProcessors(), runnable -> {
+	private ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), runnable -> {
 		Thread t = new Thread(runnable, "Worker of Frame");
 		t.setDaemon(true);
 		return t;});
@@ -178,7 +178,7 @@ public class FramePreparedProducer {
 				if (endOfStream) {
 					markDrainedIfStillAtEnd();
 				}
-				Thread.sleep(5);
+				//Thread.sleep(5);
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -285,7 +285,7 @@ public class FramePreparedProducer {
 					return;
 				}
 			}
-			Thread.sleep(2); 
+			//Thread.sleep(2); 
 		}
 	}
 	private boolean deliverHead(boolean wait) throws Exception {

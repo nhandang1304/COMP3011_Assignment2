@@ -129,12 +129,12 @@ public class VideoPlayerModel {
 	}
 
 	public void backFiveSeconds() {
-		System.out.println("Back 5 seconds");
+		
 		seekRelative(-FIVE_SECONDS_US);
 	}
 
 	public void forwardFiveSeconds() {
-		System.out.println("Move forward 5 second");
+		
 		seekRelative(FIVE_SECONDS_US);
 	}
 
@@ -150,11 +150,11 @@ public class VideoPlayerModel {
 		clock.setRelativeSeekBaseUs(ClockManagement.NO_SEEK_REQUEST);
 
 		if (pauseRequested) {
-			System.out.println("Pause");
+			
 			clock.setPauseStartedNs(System.nanoTime());
 			flushAudioOutput();
 		} else {
-			System.out.println("Resume");
+			
 			showFrameWhilePaused = false;
 			clock.resumePlaybackClock(System.nanoTime());
 			//prepareNextFrame();
