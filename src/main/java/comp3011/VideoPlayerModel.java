@@ -4,7 +4,7 @@
  * 
  * Authors:
  *   1. Simon Ratcliffe, in collaboration with GPT-5.6 Terra
- *   2. <student name and student number insert here upon modification>
+ *   2. Thi Thanh Nhan Dang - a2943401
  *
  * Copyright 2026 Simon Ratcliffe
  */
@@ -40,10 +40,8 @@ import javafx.scene.image.Image;
  * </p>
  */
 public class VideoPlayerModel {
-	//private static final long NO_SEEK_REQUEST = -1; // Sentinel value used when no seek position is active.
 	private static final long FIVE_SECONDS_US = 5_000_000L;
 	private static final long AUDIO_LEAD_NS = 30_000_000L;
-
 	private final List<FrameProcessor> frameProcessors;
 	private final Queue<PendingAudio> pendingAudio = new ConcurrentLinkedQueue<>();
 	private final BiConsumer<Integer, Integer> videoSizeChangedHandler;
@@ -66,42 +64,28 @@ public class VideoPlayerModel {
 			pumpPlayback(now);
 		}
 	};
-	private FramePreparedProducer framePreparedProducer;
-	private final ClockManagement clock;
+	private FramePreparedProducer framePreparedProducer; //Added multi-threaded FramePreparedProducer to offload heavy effect processing.
+	private final ClockManagement clock; // Extracted clock management into a separate thread-safe ClockManagement component.
 	private File videoFile; // Path to the media that comes from the command line
 	private FFmpegFrameGrabber grabber; // This is the 3rd party video media decoder. It deals in JavaCV Frame objects.
 	private JavaFXFrameConverter converter; // Takes Frame objects to JavaFX Image objects, which can be put on screen.
 	private AudioPlayer audioPlayer; // This is ours. It has some real time buffering smarts.
 	private PreparedFrame preparedFrame; // Ours, but is just an Image with some meta-data added.
-	//private boolean prepareNextFrameQueued; // True only when the event loop needs to call our prepareNextFrame method.
 	private boolean playbackOpen; // True when playback is happening.
 	private boolean pauseRequested;
 	private boolean showFrameWhilePaused; // UI thread only: show one preview frame after a seek while paused.
 	private boolean audioOutputEnabled;
 	private boolean audioAvailable;
 	private boolean frameProcessorsInitialised;
-//	private long currentTimestampUs;
-	
 	private long videoDurationUs = ClockManagement.NO_SEEK_REQUEST;
 	private VideoFrameInfo videoFrameInfo;
-//	private int videoFrameDurationUs; 
-//	private double frameRate;
-//	private int intFrameRate;
-//	private int totalVideoFrames;
-//	private long firstTimestampUs = NO_SEEK_REQUEST;
-//	private long logicalPlaybackBaseUs;
-//	private long playbackStartNs;
-//	private long pauseStartedNs;
-//	private long relativeSeekBaseUs = NO_SEEK_REQUEST;
-
 	public VideoPlayerModel(boolean audioEnabled, BiConsumer<Integer, Integer> videoSizeChangedHandler,
 			Consumer<Image> frameReadyHandler, Consumer<String> statusChangedHandler,
 			BiConsumer<Boolean, Boolean> playbackStateChangedHandler,
 			Consumer<Boolean> audioOutputStateChangedHandler,
 			List<FrameProcessor> frameProcessorList) {
-		
+		// Initialize the ClockManagement instance.
 		clock = new ClockManagement();
-		
 		audioOutputEnabled = audioEnabled;
 		this.videoSizeChangedHandler = videoSizeChangedHandler;
 		this.frameReadyHandler = frameReadyHandler;
@@ -157,7 +141,7 @@ public class VideoPlayerModel {
 			
 			showFrameWhilePaused = false;
 			clock.resumePlaybackClock(System.nanoTime());
-			//prepareNextFrame();
+			
 		}
 
 		notifyPlaybackStateChanged();
@@ -227,8 +211,6 @@ public class VideoPlayerModel {
 		else {
 			clock.setCurrentTimestampUs(startTimestampUs);
 		}
-//		currentTimestampUs = initialRelativeSeekBaseUs != ClockManagement.NO_SEEK_REQUEST ? initialRelativeSeekBaseUs
-//				: startTimestampUs;
 		clock.setRelativeSeekBaseUs(initialRelativeSeekBaseUs);
 
 		notifyStatusChanged(videoFile.getName());
@@ -238,11 +220,14 @@ public class VideoPlayerModel {
 			
 			resetPlaybackClock(clock.getCurrentTimestampUs());
 			playbackOpen = true;
+			
+			// Instantiates FramePreparedProducer to handle asynchronous frame grabbing and processing.
 			framePreparedProducer = new FramePreparedProducer(mediaName(videoFile), converter, grabber, videoFrameInfo, clock, frameProcessors,() -> pauseRequested, audioAvailable, () -> playbackOpen, this::queueAudio, this::onProducerError);
 			showFrameWhilePaused = pauseRequested;
 			if (pauseRequested) {
 				framePreparedProducer.allowFrameWhilePaused();
 			}
+			// Starts the background producer thread and animation timer.
 			framePreparedProducer.start();
 			playbackTimer.start();
 			notifyPlaybackStateChanged();
@@ -261,8 +246,6 @@ public class VideoPlayerModel {
 		notifyVideoSizeChanged(grabber.getImageWidth(), grabber.getImageHeight());
 	
 		double frameRate = grabber.getFrameRate();
-//		intFrameRate = (int) Math.round(frameRate);
-//		videoFrameDurationUs = frameRate > 0 ? (int) Math.round(1_000_000.0 / frameRate) : 0;
 		int totalVideoFrames = grabber.getLengthInVideoFrames();	
 		videoFrameInfo = VideoFrameInfo.of(totalVideoFrames, frameRate);
 		long durationUs = grabber.getLengthInTime();
@@ -282,93 +265,10 @@ public class VideoPlayerModel {
 	private void resetPlaybackClock(long logicalTimestampUs) {
 		pendingAudio.clear();
 		preparedFrame = null;
-//		currentTimestampUs = logicalTimestampUs;
-//		relativeSeekBaseUs = logicalTimestampUs;
-//		firstTimestampUs = ClockManagement.NO_SEEK_REQUEST;
-//		logicalPlaybackBaseUs = logicalTimestampUs;
-//		playbackStartNs = 0;
-//		pauseStartedNs = pauseRequested ? System.nanoTime() : 0;
 		clock.resetPlaybackClock(pauseRequested, logicalTimestampUs, ClockManagement.NO_SEEK_REQUEST);
 	}
 
-//	private void resumePlaybackClock(long now) {
-//		if (pauseStartedNs > 0 && playbackStartNs > 0) {
-//			playbackStartNs += now - pauseStartedNs;
-//		}
-//		pauseStartedNs = 0;
-//	}
-
-//	private void prepareNextFrame() {
-//		if (!playbackOpen || preparedFrame != null) {
-//			return;
-//		}
-//
-//		try {
-//			preparedFrame = framePreparedProducer.readNextVideoFrame().poll();
-//		} catch (Exception e) {
-//			handlePlaybackError(e);
-//		}
-//	}
-
-//	private PreparedFrame readNextVideoFrame() throws Exception {
-//		while (playbackOpen) {
-//			Frame frame = grabFrame();
-//			if (frame == null) {
-//				finishPlayback();
-//				return null;
-//			}
-//
-//			long timestampUs = grabber.getTimestamp();
-//			if (audioAvailable && frame.samples != null) {
-//				queueAudio(timestampUs, frame);
-//			}
-//
-//			if (frame.image == null) {
-//				continue;
-//			}
-//
-//			if (!frameProcessorsInitialised) {
-//				initialiseFrameProcessors(new InfoVideo(mediaName(videoFile), totalVideoFrames, frame.imageWidth,
-//						frame.imageHeight, frame.imageDepth, frame.imageChannels, frame.imageStride, frameRate,
-//						intFrameRate, videoFrameDurationUs, grabber.getPixelFormat()));
-//				frameProcessorsInitialised = true;
-//			}
-//
-//			if (clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST) {
-//				clock.setFirstTimestampUs(timestampUs);
-//				clock.setPlaybackStartNs(System.nanoTime()); 
-//				if (pauseRequested) {
-//					clock.setPauseStartedNs(clock.getPlaybackStartNs());
-//				}
-//			}
-//
-//			int frameNumber = grabber.getFrameNumber();
-//			InfoFrame info = new InfoFrame(frameNumber, timestampUs);
-//			processFrame(frame, info);
-//
-//			Image image = converter.convert(frame);
-//			long relativeTimestampUs = Math.max(0, timestampUs - clock.getFirstTimestampUs());
-//			long logicalTimestampUs = clock.getLogicalPlaybackBaseUs() + relativeTimestampUs;
-//			long targetTimeNs = clock.getPlaybackStartNs() + relativeTimestampUs * 1_000L;
-//
-//			return new PreparedFrame(image, frameNumber, timestampUs, logicalTimestampUs, targetTimeNs,
-//					System.nanoTime());
-//		}
-//
-//		return null;
-//	}
-
-	// This is called on a heart beat by the GUI thread. We want to be co-operative
-	// here by (a) not blocking, and (b)
-	// getting our required work out of the way quickly so that we can return
-	// control flow to the JavaFX event loop for
-	// handling user interaction with the GUI and rendering. We have three jobs: (1)
-	// keep audio flowing if sound is on,
-	// (2) display a frame if it is due and (3) prepare the next frame if we're in
-	// the window after the previous frame
-	// has gone to the display. We don't buffer frames here, just handling them one
-	// at a time. Not a great architecture,
-	// living on the edge a bit, but can't do much better on a single thread.
+	
 	private void pumpPlayback(long now) {
 		if (!playbackOpen) {
 			return;
@@ -381,18 +281,12 @@ public class VideoPlayerModel {
 		if (!mayShow) {
 			return;
 		}
-		// Task (2)
+		// Task (2) Polls prepared frames from FramePreparedProducer's blocking queue.
 		if (preparedFrame == null) {
 			preparedFrame = framePreparedProducer.pollFrame();
 		}
 
-		// Task (3). We'll try and be nice to the GUI event loop here by queueing the
-		// prepareNextFrame call rather than
-		// hogging the thread and doing it here, hence the tricky callback and use of
-		// prepareNextFrameQueued. Feel free
-		// to replace this whole block with simple linear control flow logic
-		// such as: if (!pauseRequested && preparedFrame == null) prepareNextFrame();
-		// to compare.
+		// Task (3). Display frame when due or finish playback when stream is exhausted.
 		if (preparedFrame != null) {
 			if (showFrameWhilePaused || targetTimeNs(preparedFrame) <= now) {
 				displayPreparedFrame(now);
@@ -445,6 +339,7 @@ public class VideoPlayerModel {
 			pendingAudio.clear();
 			return;
 		}
+		// Checks timing conditions using ClockManagement getters
 		if (pauseRequested || clock.getFirstTimestampUs() == ClockManagement.NO_SEEK_REQUEST || clock.getPlaybackStartNs() <= 0) {
 			return;
 		}
@@ -494,6 +389,8 @@ public class VideoPlayerModel {
 		playbackTimer.stop();
 		playbackOpen = false;
 		showFrameWhilePaused = false;
+		
+		// Shuts down the multi-threaded FramePreparedProducer
 		if (framePreparedProducer != null) {
 			framePreparedProducer.shutdown();
 			framePreparedProducer = null;
@@ -562,26 +459,6 @@ public class VideoPlayerModel {
 
 		return Math.max(0, durationUs - frameDurationUs);
 	}
-
-//	private void processFrame(Frame frame, InfoFrame info) throws Exception {
-//		for (FrameProcessor processor : frameProcessors) {
-//			
-//			processor.process(frame, info);
-//		}
-//	}
-//
-//	private void initialiseFrameProcessors(InfoVideo videoInfo) throws Exception {
-//		for (FrameProcessor processor : frameProcessors) {
-//			processor.initialise(videoInfo);
-//		}
-//	}
-//
-//	private Frame grabFrame() throws Exception {
-//		if (audioAvailable) {
-//			return grabber.grab();
-//		}
-//		return grabber.grabImage();
-//	}
 
 	private void flushAudioOutput() {
 		if (audioPlayer != null) {

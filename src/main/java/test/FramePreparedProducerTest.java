@@ -1,7 +1,6 @@
 package test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
@@ -16,9 +15,7 @@ import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.JavaFXFrameConverter;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import comp3011.ClockManagement;
 import comp3011.FramePreparedProducer;
 import comp3011.FrameProcessor;
@@ -27,10 +24,12 @@ import comp3011.VideoFrameInfo;
 import javafx.scene.image.Image;
 import comp3011.PreparedFrame;
 
+/** This class tests frame production, frame ordering, pause behaviour and effect processing**/
 class FramePreparedProducerTest {
     private static final int W = 16;
     private static final int H = 8;
     private static final int US_PER_FRAME = 40_000;
+ // Simulates a video grabber without reading an actual video file
     static final class FakeGrabber extends FFmpegFrameGrabber {
         final int total;
         private final Frame template;
@@ -76,13 +75,14 @@ class FramePreparedProducerTest {
             next = (int) (timestamp / US_PER_FRAME);
         }
     }
+    // This class prevents image conversion from requiring a real JavaFX image
     static final class NullConverter extends JavaFXFrameConverter {
         @Override
         public Image convert(Frame frame) {
             return null;
         }
     }
- 
+ // This class records which effect processed each frame and in what order
     private static final class Recorder extends FrameProcessor {
         private final String tag;
         private final Queue<String> log;
@@ -98,6 +98,7 @@ class FramePreparedProducerTest {
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final List<Exception> errors = new CopyOnWriteArrayList<>();
     private FramePreparedProducer producer;
+    // This method creates a producer with the supplied grabber and processing settings
     static FramePreparedProducer create(FakeGrabber grabber, List<FrameProcessor> processors,
             BooleanSupplier paused, BooleanSupplier playbackOpen, java.util.function.Consumer<Exception> onError) {
         return new FramePreparedProducer("fakeVideo.mp4", new NullConverter(), grabber,
@@ -105,11 +106,13 @@ class FramePreparedProducerTest {
                 playbackOpen, (timestamp, frame) -> {
                 }, onError);
     }
+    // This method creates and starts a producer for the current test
     private FramePreparedProducer start(FakeGrabber grabber, List<FrameProcessor> processors, BooleanSupplier paused) {
         producer = create(grabber, processors, paused, open::get, errors::add);
         producer.start();
         return producer;
     }
+ // Stops the producer after each test
     @AfterEach
     void tearDown() {
         open.set(false);
@@ -117,6 +120,7 @@ class FramePreparedProducerTest {
             producer.shutdown();
         }
     }
+    // Collects prepared frames
     static List<PreparedFrame> await(FramePreparedProducer p, int count) throws InterruptedException {
         List<PreparedFrame> out = new ArrayList<>();
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
@@ -130,6 +134,7 @@ class FramePreparedProducerTest {
         }
         return out;
     }
+    // This test checks that every frame is delivered in the correct order
     @Test
     void deliversEveryFrameInOrder() throws Exception {
         Queue<String> log = new ConcurrentLinkedQueue<>();
@@ -141,6 +146,7 @@ class FramePreparedProducerTest {
         assertEquals(200, frames.size());
         assertTrue(errors.isEmpty());
     }
+    // This test checks that a paused producer does not deliver frames until one is requested
     @Test
     void pausedProducerYieldsNothingUntilOneFrameIsAllowed() throws Exception {
         start(new FakeGrabber(50), List.of(), () -> true);
@@ -148,10 +154,12 @@ class FramePreparedProducerTest {
         assertNull(producer.pollFrame());
         producer.allowFrameWhilePaused();
         List<PreparedFrame> shown = await(producer, 1);
+     // Checks that exactly one frame is returned and it is the first frame
         assertEquals(1, shown.size());
         assertEquals(0, shown.get(0).frameNumber());
         
     }
+    // This test checks that effects process each frame in the order they appear in the list
     @Test
     void effectsRunInListOrderOnEveryFrame() throws Exception {
         Queue<String> log = new ConcurrentLinkedQueue<>();

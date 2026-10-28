@@ -45,6 +45,8 @@ public class CommandLineController {
             printHelp();
         }
     }
+    
+    // Returns the list of frame processors configured via command-line arguments
     public List<FrameProcessor>getFrameProcessorList() {
     	return frameProcessorList;
     }
@@ -75,7 +77,7 @@ public class CommandLineController {
     public boolean shouldLaunchApplication() {
         return errorMessage == null && videoFile != null;
     }
-    
+    // This method parses an individual long option and clear frame processor list when users enter invalid option.
     private boolean parseOptions(String option) {
     	String stringOption = option;
     	switch (stringOption) {
@@ -99,7 +101,7 @@ public class CommandLineController {
 		}
     	return true;
     }
-    
+    // This method converts a single character short option flag into its corresponding long option string.
     private String convertOptionToString(char option) {
     	switch (option) {
 		case 'h': return "--help";
@@ -121,11 +123,14 @@ public class CommandLineController {
 		default: return Character.toString(option);        		
 		}
     }
+    // Iterates through all command-line arguments, extracting short option chains,
+    // long flags, and locating the target video file path.
     private void parse() {
         List<String> videoFiles = new ArrayList<>();
         
         for (String arg : args) {
             if (arg.startsWith("-") && !arg.startsWith("--")) {
+            	// Handle clustered short options such as '-n' or '-ns'.
             	for (int i=1; i< arg.length(); i++) {
             		String stringOption = convertOptionToString(arg.charAt(i));
             		if (!parseOptions(stringOption)) {            			
@@ -135,12 +140,13 @@ public class CommandLineController {
             	}
             }
             else if (arg.startsWith("--")) {
+            	// Handle standard long options such as '--audio'
             	parseOptions(arg);
             } else {
                 videoFiles.add(arg);
             }
         }
-
+     // Validate video file constraints and handle errors
         if (videoFiles.size() > 1) {
             errorMessage = "Usage: VideoPlayer [options] [video-file]";
         } else if (videoFiles.size() == 1) {
@@ -163,7 +169,7 @@ public class CommandLineController {
         }
         this.displayId = displayId;
     }
-
+    // Printing command instructions
     private void printHelp() {
         System.out.println("Usage: VideoPlayer [options] [video-file]");
         System.out.println();

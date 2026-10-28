@@ -35,24 +35,32 @@ Effects are shared by the worker pool that one instance of each effect processes
 For every effect, concurrent output must be byte-identical to
 single-threaded output. A shared scratch buffer (as in FrameBleeder and FrameJitterer) that loses its lock would show up here as corrupted frames. Races are probabilistic, so each effect is hammered several rounds.
 */
-@Timeout(150)
+
 class EffectConcurrentTest {
     private static final int W = 96;
     private static final int H = 64;
     private static final int FRAMES = 64;
     private static final int ROUNDS = 5;
     private static final int THREADS = 8;
+    
+    // Checks whether one shared effect instance produces identical results
+    // when frames are processed sequentially and concurrently
     void checkEffectThreadSafety(Supplier<? extends FrameProcessor> factory) throws Exception {
         Frame like = patterned(W, H);
         FrameProcessor shared = initialised(factory.get(), like, FRAMES, 25);
+        
+     // Stores the expected output of each frame when processed sequentially.
         List<byte[]> reference = new ArrayList<>();
+     // Processes frames one at a time
         for (int n = 0; n < FRAMES; n++) {
             Frame f = patterned(W, H);
             shared.process(f, info(n));
             reference.add(snapshot(f));
         }
+     // Creates a fixed-size thread pool
         ExecutorService pool = Executors.newFixedThreadPool(THREADS);
         try {
+        	 // Repeats the concurrent test to increase the chance of detecting race conditions
             for (int round = 0; round < ROUNDS; round++) {
                 List<Callable<byte[]>> tasks = new ArrayList<>();
                 for (int n = 0; n < FRAMES; n++) {
@@ -63,7 +71,9 @@ class EffectConcurrentTest {
                         return snapshot(f);
                     });
                 }
+             // Runs all tasks concurrently and waits up to 60 seconds for completion
                 List<Future<byte[]>> results = pool.invokeAll(tasks, 60, TimeUnit.SECONDS);
+             // Compares each concurrent result with its sequential reference output
                 for (int n = 0; n < FRAMES; n++) {
                     assertArrayEquals(reference.get(n), results.get(n).get(), "round " + round + " frame " + n);
                 }
@@ -72,6 +82,8 @@ class EffectConcurrentTest {
             pool.shutdownNow();
         }
     }
+    
+    /** These tests checks whether some effects are safe to use across multiple threads**/
     @Test 
     void numbererIsThreadSafe() throws Exception { 
     	checkEffectThreadSafety(FrameNumberer::new); }

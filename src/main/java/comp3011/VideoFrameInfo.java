@@ -1,7 +1,9 @@
   package comp3011;
 
+/**Stores basic information about the video's frame
+   rate and duration
+ **/
 public record VideoFrameInfo (int videoFrameDurationUs, double frameRate, int intFrameRate, int totalVideoFrames)
-	
 {
 	public static final VideoFrameInfo UNKNOWN = new VideoFrameInfo(0, 0, 0, 0);
 	

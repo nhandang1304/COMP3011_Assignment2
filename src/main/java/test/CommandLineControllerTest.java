@@ -14,8 +14,13 @@ import comp3011.FrameJitterer;
 import comp3011.FrameProcessor;
 import comp3011.FrameScratcher;
 
+/**This test class is designed to validate the correctness of the {@link CommandLineController}.
+ Tests short flags, long options, combined effect chaining, order preservation, 
+ and robust error handling for invalid command-line arguments.
+ **/
 class CommandLineControllerTest {
-	
+	// Tests whether a single short character flag is correctly parsed 
+	// into its corresponding frame processor instance
 	@Test
 	void testParseCharacterFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"-f"});
@@ -24,6 +29,8 @@ class CommandLineControllerTest {
 		assertEquals(1, numberFrameProcessors);
 		assertInstanceOf(FrameFlickerer.class, frameType);
 	}
+	// Tests whether a standard long option flag is correctly parsed 
+	// into its corresponding frame processor instance 
 	@Test
 	void testParseStringFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"--scratch-frames"});
@@ -32,6 +39,7 @@ class CommandLineControllerTest {
 		assertEquals(1, numberFrameProcessors);
 		assertInstanceOf(FrameScratcher.class, frameType);
 }
+	// Tests complex mixing of long options, clustered short flags, and repetition
 	@Test
 	void testMixingParseFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"--jitter-frames", "--flicker-frames", "-fw", "--black-and-white", "-j", "-f", "-d"});
@@ -49,6 +57,7 @@ class CommandLineControllerTest {
 		
 		
 	}
+	// Tests error handling when an invalid or unrecognized option/character sequence is provided
 	@Test
 	void testInvalidParseFrameProcessor() {
 		CommandLineController controller = new CommandLineController(new String[] {"-fn9"});

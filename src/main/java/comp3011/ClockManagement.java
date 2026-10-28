@@ -1,7 +1,14 @@
 package comp3011;
 import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ This class manages all timing and playback clock synchronization for the video player. It handles tracking start times, 
+ pauses, resumes, and calculating timestamps during video seeking operations.
+ */
 public class ClockManagement {
 	static final long NO_SEEK_REQUEST = -1;
+	// Using AtomicLong variables to support thread safety when different threads
+	//access or update time values
 	private final AtomicLong firstTimestampUs = new AtomicLong(NO_SEEK_REQUEST);
 	private final AtomicLong logicalPlaybackBaseUs = new AtomicLong(0);
 	private final AtomicLong currentTimestampUs = new AtomicLong(0);
@@ -9,8 +16,9 @@ public class ClockManagement {
 	private final AtomicLong pauseStartedNs = new AtomicLong(0);
 	private final AtomicLong relativeSeekBaseUs = new AtomicLong(NO_SEEK_REQUEST);
 	
+	// The time spent paused is added to the start time so that
+    // the playback clock does not advance during the pause.
 	public void resumePlaybackClock(long now) {
-		
 		long pauseStarted = pauseStartedNs.get();
 		long playbackStart = playbackStartNs.get();
 
@@ -19,6 +27,8 @@ public class ClockManagement {
 		}
 		pauseStartedNs.set(0L);
 	}
+	//This can be used when playback starts again or when seeking
+    // to a different position in the video.
 	public void resetPlaybackClock(boolean pauseRequested, long logicalTimestampUs, long noSeekRequest) {
 		currentTimestampUs.set(logicalTimestampUs);
 		relativeSeekBaseUs.set(logicalTimestampUs);
@@ -27,6 +37,8 @@ public class ClockManagement {
 		playbackStartNs.set(0L);
 		pauseStartedNs.set(pauseRequested ? System.nanoTime() : 0L);
 	}
+	
+	// Some setters for setting some specific types of timestamps
 	public void setFirstTimestampUs(long timestamp) {
 		firstTimestampUs.set(timestamp);
 	}
@@ -46,6 +58,7 @@ public class ClockManagement {
 		relativeSeekBaseUs.set(timestamp);
 	}
 	
+	// Some getters for getting some specific types of timestamps
 	public long getFirstTimestampUs() {
 		return firstTimestampUs.get();
 	}
