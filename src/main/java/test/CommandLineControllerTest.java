@@ -14,7 +14,7 @@ import comp3011.FrameJitterer;
 import comp3011.FrameProcessor;
 import comp3011.FrameScratcher;
 
-/**This test class is designed to validate the correctness of the {@link CommandLineController}.
+/**This test class is designed to validate the correctness of the CommandLineController.
  Tests short flags, long options, combined effect chaining, order preservation, 
  and robust error handling for invalid command-line arguments.
  **/
