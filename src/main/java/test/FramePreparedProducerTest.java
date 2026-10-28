@@ -79,4 +79,35 @@ class FramePreparedProducerTest {
             next = (int) (timestamp / US_PER_FRAME);
         }
     }
+    static final class NullConverter extends JavaFXFrameConverter {
+        @Override
+        public Image convert(Frame frame) {
+            return null;
+        }
+    }
+ 
+    private static final class Recorder extends FrameProcessor {
+        private final String tag;
+        private final Queue<String> log;
+ 
+        Recorder(String tag, Queue<String> log) {
+            this.tag = tag;
+            this.log = log;
+        }
+ 
+        @Override
+        public void process(Frame frame, InfoFrame info) {
+            log.add(tag+":"+info.frameNumber());
+        }
+    }
+    private final AtomicBoolean open = new AtomicBoolean(true);
+    private final List<Exception> errors = new CopyOnWriteArrayList<>();
+    private FramePreparedProducer producer;
+    static FramePreparedProducer create(FakeGrabber grabber, List<FrameProcessor> processors,
+            BooleanSupplier paused, BooleanSupplier playbackOpen, java.util.function.Consumer<Exception> onError) {
+        return new FramePreparedProducer("fakeVideo.mp4", new NullConverter(), grabber,
+                VideoFrameInfo.of(grabber.total, 25), new ClockManagement(), processors, paused, false,
+                playbackOpen, (timestamp, frame) -> {
+                }, onError);
+    }
 }
