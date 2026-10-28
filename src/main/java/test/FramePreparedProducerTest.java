@@ -123,4 +123,15 @@ class FramePreparedProducerTest {
         }
         return out;
     }
+    @Test
+    void deliversEveryFrameInOrder() throws Exception {
+        Queue<String> log = new ConcurrentLinkedQueue<>();
+        start(new FakeGrabber(200), List.of(new Recorder("1", log)), () -> false);
+        List<PreparedFrame> frames = await(producer, 200);
+        for (int i = 0; i < frames.size(); i++) {
+            assertEquals(i, frames.get(i).frameNumber());
+        }
+        assertEquals(200, frames.size());
+        assertTrue(errors.isEmpty());
+    }
 }
