@@ -42,8 +42,6 @@ class EffectConcurrentTest {
     private static final int FRAMES = 64;
     private static final int ROUNDS = 5;
     private static final int THREADS = 8;
-
-   
     void checkEffectThreadSafety(Supplier<? extends FrameProcessor> factory) throws Exception {
         Frame like = patterned(W, H);
         FrameProcessor shared = initialised(factory.get(), like, FRAMES, 25);

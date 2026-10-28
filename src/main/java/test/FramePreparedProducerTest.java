@@ -110,6 +110,13 @@ class FramePreparedProducerTest {
         producer.start();
         return producer;
     }
+    @AfterEach
+    void tearDown() {
+        open.set(false);
+        if (producer != null) {
+            producer.shutdown();
+        }
+    }
     static List<PreparedFrame> await(FramePreparedProducer p, int count) throws InterruptedException {
         List<PreparedFrame> out = new ArrayList<>();
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
@@ -144,5 +151,19 @@ class FramePreparedProducerTest {
         assertEquals(1, shown.size());
         assertEquals(0, shown.get(0).frameNumber());
         
+    }
+    @Test
+    void effectsRunInListOrderOnEveryFrame() throws Exception {
+        Queue<String> log = new ConcurrentLinkedQueue<>();
+        start(new FakeGrabber(60),
+                List.of(new Recorder("First Effect", log), new Recorder("Second Effect", log), new Recorder("Third Effect", log)), () -> false);
+        await(producer, 60);
+        List<String> entries = new ArrayList<>(log);
+        for (int n = 0; n < 60; n++) {
+            int a = entries.indexOf("First Effect:" + n);
+            int b = entries.indexOf("Second Effect:" + n);
+            int c = entries.indexOf("Third Effect:" + n);
+            assertTrue(a >= 0 && a < b && b < c);
+        }
     }
 }
