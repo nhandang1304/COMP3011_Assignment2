@@ -74,5 +74,35 @@ class EffectConcurrentTest {
             pool.shutdownNow();
         }
     }
+    @Test 
+    void numbererIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameNumberer::new); }
+    @Test 
+    void scratcherIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameScratcher::new); }
+    @Test 
+    void flickererIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameFlickerer::new); }
+    @Test 
+    void blackAndWhiterIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameBlackAndWhiter::new); }
+    @Test 
+    void yellowerIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameYellower::new); }
+    @Test 
+    void vignetterIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameVignetter::new); }
+    @Test 
+    void dusterIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameDuster::new); }
+    @Test 
+    void peppererIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FramePepperer::new); }
+    @Test 
+    void jittererIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameJitterer::new); }
+    @Test 
+    void bleederIsThreadSafe() throws Exception { 
+    	checkEffectThreadSafety(FrameBleeder::new); }
    
 }
