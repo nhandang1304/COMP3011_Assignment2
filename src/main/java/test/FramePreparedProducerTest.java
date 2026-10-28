@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -13,7 +12,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.JavaFXFrameConverter;
@@ -21,23 +19,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-
 import comp3011.ClockManagement;
 import comp3011.FramePreparedProducer;
 import comp3011.FrameProcessor;
 import comp3011.InfoFrame;
 import comp3011.VideoFrameInfo;
 import javafx.scene.image.Image;
-
+import comp3011.PreparedFrame;
 
 class FramePreparedProducerTest {
     private static final int W = 16;
     private static final int H = 8;
     private static final int US_PER_FRAME = 40_000;
     static final class FakeGrabber extends FFmpegFrameGrabber {
-        private final AtomicBoolean open = new AtomicBoolean(true);
-        private final List<Exception> errors = new CopyOnWriteArrayList<>();
-        private FramePreparedProducer producer;
         final int total;
         private final Frame template;
         private volatile int next;
@@ -92,18 +86,18 @@ class FramePreparedProducerTest {
     private static final class Recorder extends FrameProcessor {
         private final String tag;
         private final Queue<String> log;
- 
         Recorder(String tag, Queue<String> log) {
             this.tag = tag;
             this.log = log;
         }
- 
         @Override
         public void process(Frame frame, InfoFrame info) {
             log.add(tag+":"+info.frameNumber());
         }
     }
-
+    private final AtomicBoolean open = new AtomicBoolean(true);
+    private final List<Exception> errors = new CopyOnWriteArrayList<>();
+    private FramePreparedProducer producer;
     static FramePreparedProducer create(FakeGrabber grabber, List<FrameProcessor> processors,
             BooleanSupplier paused, BooleanSupplier playbackOpen, java.util.function.Consumer<Exception> onError) {
         return new FramePreparedProducer("fakeVideo.mp4", new NullConverter(), grabber,
@@ -115,5 +109,18 @@ class FramePreparedProducerTest {
         producer = create(grabber, processors, paused, open::get, errors::add);
         producer.start();
         return producer;
+    }
+    static List<PreparedFrame> await(FramePreparedProducer p, int count) throws InterruptedException {
+        List<PreparedFrame> out = new ArrayList<>();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (out.size() < count && System.nanoTime() < deadline) {
+            PreparedFrame f = p.pollFrame();
+            if (f == null) {
+                Thread.sleep(1);
+            } else {
+                out.add(f);
+            }
+        }
+        return out;
     }
 }
