@@ -35,6 +35,9 @@ class FramePreparedProducerTest {
     private static final int H = 8;
     private static final int US_PER_FRAME = 40_000;
     static final class FakeGrabber extends FFmpegFrameGrabber {
+        private final AtomicBoolean open = new AtomicBoolean(true);
+        private final List<Exception> errors = new CopyOnWriteArrayList<>();
+        private FramePreparedProducer producer;
         final int total;
         private final Frame template;
         private volatile int next;
@@ -100,14 +103,17 @@ class FramePreparedProducerTest {
             log.add(tag+":"+info.frameNumber());
         }
     }
-    private final AtomicBoolean open = new AtomicBoolean(true);
-    private final List<Exception> errors = new CopyOnWriteArrayList<>();
-    private FramePreparedProducer producer;
+
     static FramePreparedProducer create(FakeGrabber grabber, List<FrameProcessor> processors,
             BooleanSupplier paused, BooleanSupplier playbackOpen, java.util.function.Consumer<Exception> onError) {
         return new FramePreparedProducer("fakeVideo.mp4", new NullConverter(), grabber,
                 VideoFrameInfo.of(grabber.total, 25), new ClockManagement(), processors, paused, false,
                 playbackOpen, (timestamp, frame) -> {
                 }, onError);
+    }
+    private FramePreparedProducer start(FakeGrabber grabber, List<FrameProcessor> processors, BooleanSupplier paused) {
+        producer = create(grabber, processors, paused, open::get, errors::add);
+        producer.start();
+        return producer;
     }
 }
