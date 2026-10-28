@@ -134,4 +134,15 @@ class FramePreparedProducerTest {
         assertEquals(200, frames.size());
         assertTrue(errors.isEmpty());
     }
+    @Test
+    void pausedProducerYieldsNothingUntilOneFrameIsAllowed() throws Exception {
+        start(new FakeGrabber(50), List.of(), () -> true);
+        Thread.sleep(300);
+        assertNull(producer.pollFrame());
+        producer.allowFrameWhilePaused();
+        List<PreparedFrame> shown = await(producer, 1);
+        assertEquals(1, shown.size());
+        assertEquals(0, shown.get(0).frameNumber());
+        
+    }
 }
